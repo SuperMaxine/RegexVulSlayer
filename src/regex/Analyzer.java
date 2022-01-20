@@ -16,9 +16,9 @@ public class Analyzer {
     private static final Pattern wordP = Pattern.compile("\\w");
     private static final Pattern AllP = Pattern.compile("[\\s\\S]");
 
-    private final boolean OneCouting = true;
+    private final boolean OneCouting = false;
     private final boolean POA = false;
-    private final boolean SLQ = false;
+    private final boolean SLQ = true;
 
     String regex;
     int maxLength;
@@ -67,6 +67,8 @@ public class Analyzer {
         // 对原始树进行优化，生成新树
         root = buildFinalTree(root);
         // 生成所有字符集，生成字符集只改变了Pattern.Node的charSet，并没有改变tree中LeafNode的path，还需注意
+        Pattern p  = Pattern.compile("[0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!\\\"#$%&'()*+,-./:;<=>?@\\[\\]^_`{|}~ \\t\\n\\r]");
+        generateFullSmallCharSet((Pattern.CharProperty) p.root.next);
         generateAllBigCharSet();
         // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
         // printTree(root, true);
@@ -103,7 +105,7 @@ public class Analyzer {
             for (LeafNode node : countingNodes) {
                 for (int i = 0 ; i < node.paths.size() ; i++) {
                     for (int j = i + 1; j < node.paths.size(); j++) {
-                        ArrayList<Set<Integer>> pumpPath = getPathTotalOverLap(node.paths.get(i), node.paths.get(j));
+                        ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.paths.get(i), node.paths.get(j));
                         if(pumpPath.size() != 0) {
                             for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
                                 Enumerator preEnum = new Enumerator(prePath);
@@ -115,12 +117,175 @@ public class Analyzer {
                 }
             }
         }
+
+        // if (POA) {
+        //     for (int i = 0; i < countingNodes.size(); i++) {
+        //         for (int j = i + 1; j < countingNodes.size(); j++) {
+        //             // 判断嵌套、直接相邻，以及夹着内容相邻
+        //
+        //         }
+        //     }
+        // }
+
+        if (SLQ) {
+            Enumerator preEnum = new Enumerator(new ArrayList<>());
+            for (LeafNode node : countingNodes) {
+                // 如果cmax小于100或后缀可空，则不需要检查
+                if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) continue;
+                // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
+                if (haveEmptyBeginning(node)) {
+                    for (ArrayList<Set<Integer>> pumpPath : node.paths)  {
+                        Enumerator pumpEnum = new Enumerator(pumpPath);
+                        if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
+                    }
+                }
+                else {
+                    // SLQ2：counting开头不可空，判断前缀是否是中缀的子串，如果有重叠，测试""+(中缀&前缀）*n+"\b\n\b"
+                    for (ArrayList<Set<Integer>> pumpPath : node.paths) {
+                        for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+                            if (prePath.size() == 0) continue;
+                            // if (isPath2InPath1(pumpPath, prePath)) {
+                            //     Enumerator pumpEnum = new Enumerator(pumpPath);
+                            //     System.out.println("pre:");
+                            //     System.out.println(printPath(prePath));
+                            //     System.out.println("pump:");
+                            //     System.out.println(printPath(pumpPath));
+                            //     if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
+                            //     System.out.println("\n----------\n");
+                            // }
+
+                            ArrayList<ArrayList<Set<Integer>>> pumpPaths = new ArrayList<>();
+                            if (isPath2InPath1_returnPaths(pumpPath, prePath, pumpPaths)) {
+                                for (ArrayList<Set<Integer>> pumpPath_ : pumpPaths) {
+                                    Enumerator pumpEnum = new Enumerator(pumpPath_);
+                                    // System.out.println("pre:");
+                                    // System.out.println(printPath(prePath));
+                                    // System.out.println("pump:");
+                                    // System.out.println(printPath(pumpPath));
+                                    if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
+                                    // System.out.println("\n----------\n");
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+            }
+        }
+    }
+
+    boolean isPath2InPath1(ArrayList<Set<Integer>> path1, ArrayList<Set<Integer>> path2) {
+        // 默认path1是大串，path2是小串，如果path1.path.size() < path2.path.size()，return false
+        if (path1.size() < path2.size()) {
+            return false;
+        } else {
+            // ArrayList<oldPath> result = new ArrayList<>();
+            // 对path1.path滑动窗口，从开始到path1.path.size() - path2.path.size()，每次滑动一位
+            for (int i = 0; i < path1.size() - path2.size() + 1; i++) {
+                // 对每一个滑动窗口，比较每一个节点的字符集
+                ArrayList<Set<Integer>> charSet1 = new ArrayList<>();
+                boolean path2InPath1 = true;
+                for (int j = 0; j < path2.size(); j++) {
+                    Set<Integer> tmpCharSet = new HashSet<>();
+                    tmpCharSet.addAll(path1.get(i + j));
+                    tmpCharSet.retainAll(path2.get(j));
+                    if (tmpCharSet.size() == 0) {
+                        path2InPath1 = false;
+                        break;
+                    } else {
+                        charSet1.add(tmpCharSet);
+                    }
+                }
+                if (path2InPath1) return true;
+            }
+        }
+        return false;
+    }
+
+    boolean isPath2InPath1_returnPaths(ArrayList<Set<Integer>> path1, ArrayList<Set<Integer>> path2, ArrayList<ArrayList<Set<Integer>>> result) {
+        // 默认path1是大串，path2是小串，如果path1.path.size() < path2.path.size()，return false
+        if (path1.size() < path2.size()) {
+            return false;
+        } else {
+            // ArrayList<oldPath> result = new ArrayList<>();
+            // 对path1.path滑动窗口，从开始到path1.path.size() - path2.path.size()，每次滑动一位
+            for (int i = 0; i < path1.size() - path2.size() + 1; i++) {
+                // 对每一个滑动窗口，比较每一个节点的字符集
+                ArrayList<Set<Integer>> charSet1 = new ArrayList<>();
+                boolean path2InPath1 = true;
+                for (int j = 0; j < path2.size(); j++) {
+                    Set<Integer> tmpCharSet = new HashSet<>();
+                    tmpCharSet.addAll(path1.get(i + j));
+                    tmpCharSet.retainAll(path2.get(j));
+                    if (tmpCharSet.size() == 0) {
+                        path2InPath1 = false;
+                        break;
+                    } else {
+                        charSet1.add(tmpCharSet);
+                    }
+                }
+
+                // 如果path2在path1中，视作path1_1 + path1_2 + path1_3中的path1_2与path2有重叠
+                // 把path1_1 + path1_2 & path2 + path1_3放入result
+                if (path2InPath1) {
+                    // charSet1是path1_2 & path2，这一步为在其后添加path1_3
+                    for (int j = path2.size(); j < path1.size(); j++) {
+                        charSet1.add(new HashSet<>(path1.get(j)));
+                    }
+                    // 构造tmpResult = path1_1
+                    ArrayList<Set<Integer>> tmpResult = new ArrayList<Set<Integer>>();
+                    for (int j = 0; j < i; j++) {
+                        tmpResult.add(new HashSet<>(path1.get(j)));
+                    }
+                    // 使tmpResult = path1_1 + path1_2 & path2 + path1_3
+                    tmpResult.addAll(charSet1);
+                    result.add(tmpResult);
+                }
+            }
+
+            if (result.size() > 0) return true;
+        }
+        return false;
+    }
+
+    private boolean haveEmptyBeginning(LeafNode node) {
+        while (node != this.root) {
+            LeafNode father = node.father;
+            if (father instanceof ConnectNode && ((ConnectNode) father).comeFromRight(node)) {
+                ArrayList<ArrayList<Set<Integer>>> prePaths = ((ConnectNode) father).returnTrueLeftPaths();
+                if (prePaths.size() != 0 && prePaths.get(0).size() != 0 ) return false;
+                if (((ConnectNode) father).beginInLeftPath()) return false;
+            }
+            node = father;
+        }
+        return true;
+    }
+
+    private boolean neverhaveEmptySuffix(LeafNode node) {
+        while (node != this.root) {
+            LeafNode father = node.father;
+            if (father instanceof ConnectNode && ((ConnectNode) father).comeFromLeft(node)) {
+                ArrayList<ArrayList<Set<Integer>>> suffixPaths = ((ConnectNode) father).returnTrueRightPaths();
+                if (suffixPaths.size() != 0 && suffixPaths.get(0).size() != 0 ) return true;
+                if (((ConnectNode) father).endInRight()) return true;
+            }
+            node = father;
+        }
+        return false;
     }
 
     enum VulType {
         OneCounting, POA, SLQ
     }
 
+    /**
+     * 对给定的前缀和中缀进行枚举并验证是否具有攻击性
+     * @param preEnum 前缀枚举类
+     * @param pumpEnum 中缀枚举类
+     * @param type 检测的是OneCounting、POA、SLQ中哪类漏洞
+     * @return 是否具有攻击性
+     */
     private boolean dynamicValidate(Enumerator preEnum, Enumerator pumpEnum, VulType type) {
         int max_length = 50;
         if (type == VulType.OneCounting) {
@@ -172,7 +337,13 @@ public class Analyzer {
         return false;
     }
 
-    ArrayList<Set<Integer>> getPathTotalOverLap(ArrayList<Set<Integer>> path1, ArrayList<Set<Integer>> path2) {
+    /**
+     * 当两条路径具有一条完全重合的路径时，返回重合路径
+     * @param path1 路径1
+     * @param path2 路径2
+     * @return 路径1和2的重合路径
+     */
+    ArrayList<Set<Integer>> getPathCompletelyOverLap(ArrayList<Set<Integer>> path1, ArrayList<Set<Integer>> path2) {
         ArrayList<Set<Integer>> result = new ArrayList<>();
         // 如果两条path的长度不同，则不可能有完全重叠
         if (path1.size() != path2.size()) {
@@ -264,6 +435,8 @@ public class Analyzer {
         LeafNode father;
         ArrayList<ArrayList<Set<Integer>>> paths;
         Pattern.Node actualNode;
+        boolean beginInPath = false;
+        boolean endInPath = false;
 
         LeafNode (Set<Integer> groupNums) {
             this.groupNums = new HashSet<Integer>(groupNums);
@@ -318,8 +491,16 @@ public class Analyzer {
             leftPaths = new ArrayList<>();
             rightPaths = new ArrayList<>();
 
-            if (left != null && !(left instanceof LookaroundNode)) leftPaths.addAll(left.paths);
-            if (right != null && !(right instanceof LookaroundNode)) rightPaths.addAll(right.paths);
+            if (left != null && !(left instanceof LookaroundNode)) {
+                leftPaths.addAll(left.paths);
+                if (left.beginInPath) this.beginInPath = true;
+                if (left.endInPath) this.endInPath = true;
+            }
+            if (right != null && !(right instanceof LookaroundNode)) {
+                rightPaths.addAll(right.paths);
+                if (right.beginInPath) this.beginInPath = true;
+                if (right.endInPath) this.endInPath = true;
+            }
 
             if (leftPaths.size() == 0) {
                 this.paths.addAll(rightPaths);
@@ -371,14 +552,24 @@ public class Analyzer {
 
         ArrayList<ArrayList<Set<Integer>>> returnTrueLeftPaths() {
             ArrayList<ArrayList<Set<Integer>>> result = new ArrayList<>();
-            if (!(left instanceof LookaroundNode)) result.addAll(left.paths);
+            if (left != null && !(left instanceof LookaroundNode)) result.addAll(left.paths);
             return result;
         }
 
         ArrayList<ArrayList<Set<Integer>>> returnTrueRightPaths() {
             ArrayList<ArrayList<Set<Integer>>> result = new ArrayList<>();
-            if (!(right instanceof LookaroundNode)) result.addAll(right.paths);
+            if (right != null && !(right instanceof LookaroundNode)) result.addAll(right.paths);
             return result;
+        }
+
+        boolean beginInLeftPath() {
+            if (left != null && !(left instanceof LookaroundNode)) return left.beginInPath;
+            return false;
+        }
+
+        boolean endInRight() {
+            if (right != null && !(right instanceof LookaroundNode)) return right.endInPath;
+            return false;
         }
 
         @Override
@@ -415,9 +606,15 @@ public class Analyzer {
         }
 
         void generatePaths() {
+            this.beginInPath = true;
+            this.endInPath = true;
             for (LeafNode child : children) {
                 childrenPaths.put(child, new ArrayList<>(child.paths));
-                if (!(child instanceof LookaroundNode)) this.paths.addAll(child.paths);
+                if (!(child instanceof LookaroundNode)) {
+                    this.paths.addAll(child.paths);
+                    if (!child.beginInPath) this.beginInPath = false;
+                    if (!child.endInPath) this.endInPath = false;
+                }
             }
             Collections.sort((this.paths), new Comparator<ArrayList<Set<Integer>>>() {
                 @Override
@@ -473,7 +670,12 @@ public class Analyzer {
         }
 
         void generatePaths() {
-            if (!(atom instanceof LookaroundNode)) this.atomPaths = new ArrayList<>(atom.paths);
+            this.atomPaths = new ArrayList<>();
+            if (atom != null && !(atom instanceof LookaroundNode)) {
+                this.atomPaths.addAll(atom.paths);
+                if (cmin != 0) this.beginInPath = atom.beginInPath;
+                if (cmin != 0) this.endInPath = atom.endInPath;
+            }
 
             ArrayList<ArrayList<Set<Integer>>> lastPaths = new ArrayList<>();
             lastPaths.add(new ArrayList<>());
@@ -558,11 +760,13 @@ public class Analyzer {
             super(groupNums);
             this.atom = atom;
             this.type = type;
-            atom.father = this;
+            if (atom != null) atom.father = this;
         }
 
         void generatePaths() {
             this.paths.addAll(atom.paths);
+            this.beginInPath = atom.beginInPath;
+            this.endInPath = atom.endInPath;
         }
 
         @Override
@@ -632,6 +836,7 @@ public class Analyzer {
     private class Begin extends LeafNode {
         Begin (Set<Integer> groupNums) {
             super(groupNums);
+            this.beginInPath = true;
         }
 
         @Override
@@ -647,6 +852,7 @@ public class Analyzer {
     private class End extends LeafNode {
         End (Set<Integer> groupNums) {
             super(groupNums);
+            this.endInPath = true;
         }
 
         @Override
@@ -669,8 +875,12 @@ public class Analyzer {
         while (node != this.root) {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromRight(node)) {
+                // ArrayList<ArrayList<Set<Integer>>> left = ((ConnectNode) father).returnTrueLeftPaths();
                 result = splicePath(((ConnectNode) father).returnTrueLeftPaths(), result);
             }
+            // else if (father instanceof LoopNode && ((LoopNode) father).cmin == 0) {
+            //     result.add(new ArrayList<>());
+            // }
             node = father;
         }
         if (result.size() == 0) result.add(new ArrayList<>());
