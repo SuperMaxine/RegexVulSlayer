@@ -4,6 +4,7 @@ import javafx.util.Pair;
 import redos.regex.Pattern4Search;
 import redos.regex.redosPattern;
 
+import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -84,8 +85,8 @@ public class Analyzer {
         // 对新树生成所有路径
         // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
         generateAllPath(root, false);
-        System.out.println("\n\n-----------------------\n\n\nflowchart TD");
-        printTree(root, true);
+        // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
+        // printTree(root, true);
         // 记录结束时间
         long endTime = System.currentTimeMillis();
         System.out.println("Build tree cost time: " + (endTime - startTime) + "ms");
@@ -117,6 +118,10 @@ public class Analyzer {
                         ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.paths.get(i), node.paths.get(j));
                         if(pumpPath.size() != 0) {
                             for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+                                if(Thread.currentThread().isInterrupted()){
+                                    System.out.println("线程请求中断...");
+                                    return;
+                                }
                                 Enumerator preEnum = new Enumerator(prePath);
                                 Enumerator pumpEnum = new Enumerator(pumpPath);
                                 if (dynamicValidate(preEnum, pumpEnum, VulType.OneCounting)) return;
@@ -151,6 +156,10 @@ public class Analyzer {
                                     ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
+                                            if(Thread.currentThread().isInterrupted()){
+                                                System.out.println("线程请求中断...");
+                                                return;
+                                            }
                                             Enumerator preEnum = new Enumerator(prePath);
                                             Enumerator pumpEnum = new Enumerator(pumpPath);
                                             if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
@@ -171,6 +180,10 @@ public class Analyzer {
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                            if(Thread.currentThread().isInterrupted()){
+                                                System.out.println("线程请求中断...");
+                                                return;
+                                            }
                                             Enumerator preEnum = new Enumerator(prePath);
                                             Enumerator pumpEnum = new Enumerator(pumpPath);
                                             if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
@@ -185,6 +198,10 @@ public class Analyzer {
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                            if(Thread.currentThread().isInterrupted()){
+                                                System.out.println("线程请求中断...");
+                                                return;
+                                            }
                                             Enumerator preEnum = new Enumerator(prePath);
                                             Enumerator pumpEnum = new Enumerator(pumpPath);
                                             if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
@@ -206,6 +223,10 @@ public class Analyzer {
                 // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
                 if (haveEmptyBeginning(node)) {
                     for (ArrayList<Set<Integer>> pumpPath : node.paths)  {
+                        if(Thread.currentThread().isInterrupted()){
+                            System.out.println("线程请求中断...");
+                            return;
+                        }
                         Enumerator pumpEnum = new Enumerator(pumpPath);
                         if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
                     }
@@ -228,6 +249,10 @@ public class Analyzer {
                             ArrayList<ArrayList<Set<Integer>>> pumpPaths = new ArrayList<>();
                             if (isPath2InPath1_returnPaths(pumpPath, prePath, pumpPaths)) {
                                 for (ArrayList<Set<Integer>> pumpPath_ : pumpPaths) {
+                                    if(Thread.currentThread().isInterrupted()){
+                                        System.out.println("线程请求中断...");
+                                        return;
+                                    }
                                     Enumerator pumpEnum = new Enumerator(pumpPath_);
                                     // System.out.println("pre:");
                                     // System.out.println(printPath(prePath));
@@ -442,15 +467,35 @@ public class Analyzer {
         // 如果前缀可空的话，前缀固定为""，只枚举后缀
         if (preEnum.Empty()) {
             while (pumpEnum.hasNext()) {
+                if(Thread.currentThread().isInterrupted()){
+                    System.out.println("线程请求中断...");
+                    return false;
+                }
                 String pump = pumpEnum.next();
                 double matchingStepCnt;
                 if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
                 else matchingStepCnt = testPattern.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
                 // System.out.println(matchingStepCnt);
                 if (matchingStepCnt > 1e5) {
+                    attackMsg = "";
+                    try {
+                        // type
+                        attackMsg += type;
+                        attackMsg += ",";
+                        // pre
+                        attackMsg += Base64.getEncoder().encodeToString("".getBytes("utf-8"));
+                        attackMsg += ",";
+                        // pump
+                        attackMsg += Base64.getEncoder().encodeToString(pump.getBytes("utf-8"));
+                        attackMsg += ",";
+                        // suffix
+                        attackMsg += Base64.getEncoder().encodeToString("\\n\\b\\n".getBytes("utf-8"));
+                    } catch (UnsupportedEncodingException e) {
+                        e.printStackTrace();
+                    }
                     System.out.println("MatchSteps: " + matchingStepCnt);
                     attackable = true;
-                    attackMsg = type + "\nprefix:\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n";
+                    // attackMsg = type + "\nprefix:\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n";
                     return true;
                 }
                 // System.out.println("");
@@ -461,16 +506,35 @@ public class Analyzer {
             while (preEnum.hasNext()) {
                 String pre = preEnum.next();
                 while (pumpEnum.hasNext()) {
+                    if(Thread.currentThread().isInterrupted()){
+                        System.out.println("线程请求中断...");
+                        return false;
+                    }
                     String pump = pumpEnum.next();
                     double matchingStepCnt;
                     if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
                     else matchingStepCnt = testPattern.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
                     // System.out.println(matchingStepCnt);
                     if (matchingStepCnt > 1e5) {
-                        // System.out.println("matchingStepCnt > 1e5");
+                        attackMsg = "";
+                        try {
+                            // type
+                            attackMsg += type;
+                            attackMsg += ",";
+                            // pre
+                            attackMsg += Base64.getEncoder().encodeToString("".getBytes("utf-8"));
+                            attackMsg += ",";
+                            // pump
+                            attackMsg += Base64.getEncoder().encodeToString(pump.getBytes("utf-8"));
+                            attackMsg += ",";
+                            // suffix
+                            attackMsg += Base64.getEncoder().encodeToString("\\n\\b\\n".getBytes("utf-8"));
+                        } catch (UnsupportedEncodingException e) {
+                            e.printStackTrace();
+                        }
                         System.out.println("MatchSteps: " + matchingStepCnt);
                         attackable = true;
-                        attackMsg = type + "\nprefix:" + pre + "\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n";
+                        // attackMsg = type + "\nprefix:" + pre + "\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n";
                         return true;
                     }
                 }
