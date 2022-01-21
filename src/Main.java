@@ -42,7 +42,7 @@ public class Main {
         99ms    n = 1000
         215ms   n = 1500
         378ms   n = 2000
-        报错StackOverflowError
+        报错StackOverflowError    n = 2500
         师兄给的"" + "a".repeat(i*10000) + "\n!\n";同理，也是StackOverflowError
         */
         // testSingleRegex("[^{}\\s](?:[^{};\\\"']|(\\\"|')(?:\\\\(?:\\r\\n|[\\s\\S])|(?!\\1)[^\\\\\\r\\n])*\\1)*?(?=\\s*\\{)");
@@ -56,6 +56,8 @@ public class Main {
         // 同上StackOverflowError，攻击串“”+“\"”*n+“\n\b\n”，似乎有反向引用就容易引发StackOverflowError
         // testSingleRegex("([\\\"'])(?:\\\\(?:\\r\\n|[\\s\\S])|(?!\\1)[^\\\\\\r\\n])*\\1");
         testSingleRegex("#?[_$a-zA-Z\\xA0-\\uFFFF][$\\w\\xA0-\\uFFFF]*(?=\\s*(?:\\.\\s*(?:apply|bind|call)\\s*)?\\()");
+
+
         // testSingleRegex("");
         // testSingleRegex("");
     }
