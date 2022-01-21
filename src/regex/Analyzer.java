@@ -21,10 +21,10 @@ public class Analyzer {
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
-    private final boolean POA = true;
-    // private final boolean POA = false;
-    // private final boolean SLQ = true;
-    private final boolean SLQ = false;
+    // private final boolean POA = true;
+    private final boolean POA = false;
+    private final boolean SLQ = true;
+    // private final boolean SLQ = false;
 
     String regex;
     int maxLength;
