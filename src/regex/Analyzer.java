@@ -1,9 +1,11 @@
 package regex;
 
+import javafx.util.Pair;
 import redos.regex.Pattern4Search;
 import redos.regex.redosPattern;
 
 import java.util.*;
+import java.util.logging.Level;
 
 /**
  * @author SuperMaxine
@@ -16,9 +18,12 @@ public class Analyzer {
     private static final Pattern wordP = Pattern.compile("\\w");
     private static final Pattern AllP = Pattern.compile("[\\s\\S]");
 
+    // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
-    private final boolean POA = false;
-    private final boolean SLQ = true;
+    private final boolean POA = true;
+    // private final boolean POA = false;
+    // private final boolean SLQ = true;
+    private final boolean SLQ = false;
 
     String regex;
     int maxLength;
@@ -40,6 +45,8 @@ public class Analyzer {
     LeafNode root;
     private ArrayList<LeafNode> countingNodes;
     private Map<LeafNode, ArrayList<ArrayList<Set<Integer>>>> countingPrePaths;
+    private int id;
+    private Map<Integer, Set<Integer>> id2childNodes;
 
     public Analyzer(String regex, int maxLength) {
         this.regex = regex;
@@ -56,6 +63,8 @@ public class Analyzer {
 
         countingNodes = new ArrayList<>();
         countingPrePaths = new HashMap<>();
+        id = 0;
+        id2childNodes = new HashMap<>();
 
         // 记录开始时间
         long startTime = System.currentTimeMillis();
@@ -74,7 +83,7 @@ public class Analyzer {
         // printTree(root, true);
         // 对新树生成所有路径
         // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
-        generateAllPath(root);
+        generateAllPath(root, false);
         System.out.println("\n\n-----------------------\n\n\nflowchart TD");
         printTree(root, true);
         // 记录结束时间
@@ -116,16 +125,78 @@ public class Analyzer {
                     }
                 }
             }
+            System.out.println("[*] OneCouting finished");
         }
 
-        // if (POA) {
-        //     for (int i = 0; i < countingNodes.size(); i++) {
-        //         for (int j = i + 1; j < countingNodes.size(); j++) {
-        //             // 判断嵌套、直接相邻，以及夹着内容相邻
-        //
-        //         }
-        //     }
-        // }
+        if (POA) {
+            for (int i = 0; i < countingNodes.size(); i++) {
+                for (int j = i + 1; j < countingNodes.size(); j++) {
+                    // 判断嵌套、直接相邻，以及夹着内容相邻
+                    // 嵌套结构跳过不测
+                    if (isNode1ChildOfNode2(countingNodes.get(i), countingNodes.get(j)) || isNode1ChildOfNode2(countingNodes.get(j), countingNodes.get(i))) {
+                        continue;
+                    }
+                    else {
+                        // 找到两者的公共父节点，然后求出两者之间夹着的路径
+                        Pair<ArrayList<ArrayList<Set<Integer>>>, LeafNode> midPathsAndFrontNode = getMidAndFrontNode(countingNodes.get(i), countingNodes.get(j));
+
+                        LeafNode node1 = countingNodes.get(i);
+                        LeafNode node2 = countingNodes.get(j);
+                        ArrayList<ArrayList<Set<Integer>>> debugMidPaths = midPathsAndFrontNode.getKey();
+
+                        if (midPathsAndFrontNode.getKey().size() == 0) {
+                            // 说明两者直接相邻
+                            for (ArrayList<Set<Integer>> path1 : countingNodes.get(i).paths) {
+                                for (ArrayList<Set<Integer>> path2 : countingNodes.get(j).paths) {
+                                    ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(path1, path2);
+                                    if (pumpPath.size() != 0) {
+                                        for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
+                                            Enumerator preEnum = new Enumerator(prePath);
+                                            Enumerator pumpEnum = new Enumerator(pumpPath);
+                                            if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                            // 说明两者之间夹着内容，\w+0\d+
+                            ArrayList<ArrayList<Set<Integer>>> prePaths = countingPrePaths.get(midPathsAndFrontNode.getValue());
+                            ArrayList<Set<Integer>> pumpPath;
+                            LeafNode frontNode = midPathsAndFrontNode.getValue();
+                            LeafNode backNode = countingNodes.get(i) == midPathsAndFrontNode.getValue() ? countingNodes.get(j) : countingNodes.get(i);
+                            // \w+0 vs \d+
+                            for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.paths, midPathsAndFrontNode.getKey())) {
+                                for (ArrayList<Set<Integer>> path2 : backNode.paths) {
+                                    pumpPath = getPathCompletelyOverLap(path1, path2);
+                                    if (pumpPath.size() != 0) {
+                                        for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                            Enumerator preEnum = new Enumerator(prePath);
+                                            Enumerator pumpEnum = new Enumerator(pumpPath);
+                                            if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // \w+ vs 0\d+
+                            for (ArrayList<Set<Integer>> path1 : splicePath(midPathsAndFrontNode.getKey(), backNode.paths)) {
+                                for (ArrayList<Set<Integer>> path2 : frontNode.paths) {
+                                    pumpPath = getPathCompletelyOverLap(path1, path2);
+                                    if (pumpPath.size() != 0) {
+                                        for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                            Enumerator preEnum = new Enumerator(prePath);
+                                            Enumerator pumpEnum = new Enumerator(pumpPath);
+                                            if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         if (SLQ) {
             Enumerator preEnum = new Enumerator(new ArrayList<>());
@@ -172,7 +243,79 @@ public class Analyzer {
 
 
             }
+            System.out.println("[*] SLQ finished");
         }
+    }
+
+    Pair<ArrayList<ArrayList<Set<Integer>>>, LeafNode> getMidAndFrontNode(LeafNode node1, LeafNode node2) {
+        Pair<ArrayList<ArrayList<Set<Integer>>>, ArrayList<ArrayList<Set<Integer>>>> result;
+        ArrayList<ArrayList<Set<Integer>>> midPaths = new ArrayList<>();
+        // 向上遍历，找到最小公共父节点
+        LeafNode tmp = node1;
+        LeafNode father = tmp;
+        while (!id2childNodes.get(father.id).contains(node2.id)) {
+            father = tmp.father;
+            tmp = father;
+        }
+
+        if (father instanceof ConnectNode) {
+            ArrayList<ArrayList<Set<Integer>>> prefixPaths = new ArrayList<>();
+            ArrayList<ArrayList<Set<Integer>>> suffixPaths = new ArrayList<>();
+            LeafNode front = null, back = null;
+            if (((ConnectNode) father).comeFromLeft(node1) && ((ConnectNode) father).comeFromRight(node2)) {
+                // 说明node1在前，node2在后，node1求后缀，node2求前缀，在最小父节点相遇组合就是中间路径
+                front = node1;
+                back = node2;
+            }
+            else if (((ConnectNode) father).comeFromLeft(node2) && ((ConnectNode) father).comeFromRight(node1)) {
+                // 说明node2在前，node1在后，node2求后缀，node1求前缀，在最小父节点相遇组合就是中间路径
+                front = node2;
+                back = node1;
+            }
+
+            tmp = front;
+            LeafNode tmpfather = tmp.father;
+            while (tmpfather != father) {
+                if (tmpfather instanceof ConnectNode && ((ConnectNode) tmpfather).comeFromRight(tmp)) {
+                    prefixPaths = splicePath(((ConnectNode) tmpfather).returnTrueLeftPaths(), prefixPaths);
+                }
+                tmp = tmpfather;
+                tmpfather = tmp.father;
+            }
+
+            tmp = back;
+            tmpfather = tmp.father;
+            while (tmpfather != father) {
+                if (tmpfather instanceof ConnectNode && ((ConnectNode) tmpfather).comeFromRight(tmp)) {
+                    suffixPaths = splicePath(((ConnectNode) tmpfather).returnTrueLeftPaths(), suffixPaths);
+                }
+                tmp = tmpfather;
+                tmpfather = tmp.father;
+            }
+
+            midPaths = splicePath(prefixPaths, suffixPaths);
+
+            Collections.sort((midPaths), new Comparator<ArrayList<Set<Integer>>>() {
+                @Override
+                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                    return o1.size() - o2.size();
+                }
+            });
+
+            return new Pair<>(midPaths, front);
+        }
+        else if (father instanceof BranchNode) {
+            // 如果最小公共父节点是分支的话，说明之间不夹着东西，视作相邻，前缀都一样，随便返回一个即可
+            return new Pair<>(midPaths, node1);
+        }
+        else {
+            throw new Error("father is not ConnectNode or BranchNode");
+        }
+    }
+
+    boolean isNode1ChildOfNode2(LeafNode node1, LeafNode node2) {
+        if (id2childNodes.get(node2.id).contains(node1.id)) return true;
+        return false;
     }
 
     boolean isPath2InPath1(ArrayList<Set<Integer>> path1, ArrayList<Set<Integer>> path2) {
@@ -287,13 +430,13 @@ public class Analyzer {
      * @return 是否具有攻击性
      */
     private boolean dynamicValidate(Enumerator preEnum, Enumerator pumpEnum, VulType type) {
-        int max_length = 50;
+        int pumpMaxLength = 50;
         if (type == VulType.OneCounting) {
-            max_length = 50;
+            pumpMaxLength = 50;
         } else if (type == VulType.POA) {
-            max_length = 10000;
+            pumpMaxLength = 10000;
         } else if (type == VulType.SLQ) {
-            max_length = 30000;
+            pumpMaxLength = 30000;
         }
 
         // 如果前缀可空的话，前缀固定为""，只枚举后缀
@@ -301,11 +444,11 @@ public class Analyzer {
             while (pumpEnum.hasNext()) {
                 String pump = pumpEnum.next();
                 double matchingStepCnt;
-                if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", max_length, 100000);
-                else matchingStepCnt = testPattern.getMatchingStepCnt("", pump, "\n\b\n", max_length, 100000);
+                if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
+                else matchingStepCnt = testPattern.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
                 // System.out.println(matchingStepCnt);
                 if (matchingStepCnt > 1e5) {
-                    System.out.println(matchingStepCnt);
+                    System.out.println("MatchSteps: " + matchingStepCnt);
                     attackable = true;
                     attackMsg = type + "\nprefix:\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n";
                     return true;
@@ -320,12 +463,12 @@ public class Analyzer {
                 while (pumpEnum.hasNext()) {
                     String pump = pumpEnum.next();
                     double matchingStepCnt;
-                    if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", max_length, 100000);
-                    else matchingStepCnt = testPattern.getMatchingStepCnt(pre, pump, "\n\b\n", max_length, 100000);
+                    if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
+                    else matchingStepCnt = testPattern.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
                     // System.out.println(matchingStepCnt);
                     if (matchingStepCnt > 1e5) {
                         // System.out.println("matchingStepCnt > 1e5");
-                        System.out.println(matchingStepCnt);
+                        System.out.println("MatchSteps: " + matchingStepCnt);
                         attackable = true;
                         attackMsg = type + "\nprefix:" + pre + "\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n";
                         return true;
@@ -437,6 +580,7 @@ public class Analyzer {
         Pattern.Node actualNode;
         boolean beginInPath = false;
         boolean endInPath = false;
+        int id;
 
         LeafNode (Set<Integer> groupNums) {
             this.groupNums = new HashSet<Integer>(groupNums);
@@ -455,6 +599,7 @@ public class Analyzer {
             System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
+                    + (debug ? "id:" + this.id + "\\n" : "")
                     +printPaths(paths, true)+"\"]");
         }
     }
@@ -488,18 +633,27 @@ public class Analyzer {
          * 根据左右子树路径生成本节点的路径
          */
         void generatePaths() {
+            assignId2Node(this);
             leftPaths = new ArrayList<>();
             rightPaths = new ArrayList<>();
 
-            if (left != null && !(left instanceof LookaroundNode)) {
-                leftPaths.addAll(left.paths);
-                if (left.beginInPath) this.beginInPath = true;
-                if (left.endInPath) this.endInPath = true;
+            if (left != null) {
+                if (!(left instanceof LookaroundNode)) {
+                    leftPaths.addAll(left.paths);
+                    if (left.beginInPath) this.beginInPath = true;
+                    if (left.endInPath) this.endInPath = true;
+                }
+                id2childNodes.get(this.id).add(left.id);
+                id2childNodes.get(this.id).addAll(id2childNodes.get(left.id));
             }
-            if (right != null && !(right instanceof LookaroundNode)) {
-                rightPaths.addAll(right.paths);
-                if (right.beginInPath) this.beginInPath = true;
-                if (right.endInPath) this.endInPath = true;
+            if (right != null) {
+                if (!(right instanceof LookaroundNode)) {
+                    rightPaths.addAll(right.paths);
+                    if (right.beginInPath) this.beginInPath = true;
+                    if (right.endInPath) this.endInPath = true;
+                }
+                id2childNodes.get(this.id).add(right.id);
+                id2childNodes.get(this.id).addAll(id2childNodes.get(right.id));
             }
 
             if (leftPaths.size() == 0) {
@@ -543,11 +697,11 @@ public class Analyzer {
         }
 
         boolean comeFromLeft(LeafNode node) {
-            return node == left;
+            return node == left || id2childNodes.get(left.id).contains(node.id);
         }
 
         boolean comeFromRight(LeafNode node) {
-            return node == right;
+            return node == right || id2childNodes.get(right.id).contains(node.id);
         }
 
         ArrayList<ArrayList<Set<Integer>>> returnTrueLeftPaths() {
@@ -584,6 +738,7 @@ public class Analyzer {
             System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
+                    + (debug ? "id:" + this.id + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -601,11 +756,14 @@ public class Analyzer {
         }
 
         void addChild (LeafNode child) {
-            children.add(child);
-            child.father = this;
+            if (child != null) {
+                children.add(child);
+                child.father = this;
+            }
         }
 
         void generatePaths() {
+            assignId2Node(this);
             this.beginInPath = true;
             this.endInPath = true;
             for (LeafNode child : children) {
@@ -615,6 +773,8 @@ public class Analyzer {
                     if (!child.beginInPath) this.beginInPath = false;
                     if (!child.endInPath) this.endInPath = false;
                 }
+                id2childNodes.get(this.id).add(child.id);
+                id2childNodes.get(this.id).addAll(id2childNodes.get(child.id));
             }
             Collections.sort((this.paths), new Comparator<ArrayList<Set<Integer>>>() {
                 @Override
@@ -649,6 +809,7 @@ public class Analyzer {
             System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
+                    + (debug ? "id:" + this.id + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -670,11 +831,16 @@ public class Analyzer {
         }
 
         void generatePaths() {
+            assignId2Node(this);
             this.atomPaths = new ArrayList<>();
-            if (atom != null && !(atom instanceof LookaroundNode)) {
-                this.atomPaths.addAll(atom.paths);
-                if (cmin != 0) this.beginInPath = atom.beginInPath;
-                if (cmin != 0) this.endInPath = atom.endInPath;
+            if (atom != null) {
+                if (!(atom instanceof LookaroundNode)) {
+                    this.atomPaths.addAll(atom.paths);
+                    if (cmin != 0) this.beginInPath = atom.beginInPath;
+                    if (cmin != 0) this.endInPath = atom.endInPath;
+                }
+                id2childNodes.get(this.id).add(atom.id);
+                id2childNodes.get(this.id).addAll(id2childNodes.get(atom.id));
             }
 
             ArrayList<ArrayList<Set<Integer>>> lastPaths = new ArrayList<>();
@@ -742,6 +908,7 @@ public class Analyzer {
             System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
+                    + (debug ? "id:" + this.id + "\\n" : "")
                     + "cmin = " + cmin + "\\ncmax = " + cmax + "\\n"
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
@@ -764,9 +931,12 @@ public class Analyzer {
         }
 
         void generatePaths() {
+            assignId2Node(this);
             this.paths.addAll(atom.paths);
             this.beginInPath = atom.beginInPath;
             this.endInPath = atom.endInPath;
+            id2childNodes.get(this.id).add(atom.id);
+            id2childNodes.get(this.id).addAll(id2childNodes.get(atom.id));
         }
 
         @Override
@@ -788,6 +958,7 @@ public class Analyzer {
             System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
+                    + (debug ? "id:" + this.id + "\\n" : "")
                     + "type = " + type.toString() + "\\n"
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
@@ -813,6 +984,7 @@ public class Analyzer {
             System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
+                    + (debug ? "id:" + this.id + "\\n" : "")
                     + "groupIndex = " + groupIndex + "\\n"
                     + "localIndex = " + groupIndex2LocalIndex.get(groupIndex) + "\\n"
                     +(debug ? printPaths(paths, true) : "")+"\"]");
@@ -844,6 +1016,7 @@ public class Analyzer {
             System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
                     +"[\""+ "^" + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
+                    + (debug ? "id:" + this.id + "\\n" : "")
                     +"\"]");
         }
     }
@@ -860,6 +1033,7 @@ public class Analyzer {
             System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
                     +"[\""+ "$" + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
+                    + (debug ? "id:" + this.id + "\\n" : "")
                     +"\"]");
         }
     }
@@ -917,36 +1091,37 @@ public class Analyzer {
     }
 
     /**
-     * 对传入的树，递归地生成每一个节点的Path，同时记录每个循环节点
+     * 对传入的树，递归地生成每一个节点的Path，同时记录每个循环节点，并为每个节点分配id且记录每个节点下属所有孩子节点的id
      * @param root 根节点
      */
-    private void generateAllPath(LeafNode root) {
+    private void generateAllPath(LeafNode root, boolean inLookaround) {
         if (root == null) {
             return;
         }
         else if (root instanceof LinkNode) {
             if (root instanceof ConnectNode) {
-                generateAllPath(((ConnectNode) root).left);
-                generateAllPath(((ConnectNode) root).right);
+                generateAllPath(((ConnectNode) root).left, inLookaround);
+                generateAllPath(((ConnectNode) root).right, inLookaround);
                 ((ConnectNode) root).generatePaths();
             }
             else if (root instanceof BranchNode) {
                 for (LeafNode node : ((BranchNode) root).children) {
-                    generateAllPath(node);
+                    generateAllPath(node, inLookaround);
                 }
                 ((BranchNode) root).generatePaths();
             }
             else if (root instanceof LoopNode) {
-                generateAllPath(((LoopNode) root).atom);
+                generateAllPath(((LoopNode) root).atom, inLookaround);
                 ((LoopNode) root).generatePaths();
-                countingNodes.add(root);
+                if(!inLookaround) countingNodes.add(root);
             }
             else if (root instanceof LookaroundNode) {
-                generateAllPath(((LookaroundNode) root).atom);
+                generateAllPath(((LookaroundNode) root).atom, true);
                 ((LookaroundNode) root).generatePaths();
             }
         }
         else if (root instanceof LeafNode) {
+            assignId2Node(root);
             if (root.actualNode == null) {
                 return;
             }
@@ -957,6 +1132,11 @@ public class Analyzer {
                 root.paths.add(tmpPath);
             }
         }
+    }
+
+    private void assignId2Node(LeafNode node) {
+        node.id = id++;
+        id2childNodes.put(node.id, new HashSet<>());
     }
 
     /**
