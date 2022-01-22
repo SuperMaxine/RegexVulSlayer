@@ -761,11 +761,11 @@ public class Analyzer {
         }
 
         boolean comeFromLeft(LeafNode node) {
-            return node == left || id2childNodes.get(left.id).contains(node.id);
+            return node == left || (right!=null && id2childNodes.get(left.id).contains(node.id));
         }
 
         boolean comeFromRight(LeafNode node) {
-            return node == right || id2childNodes.get(right.id).contains(node.id);
+            return node == right || (right!=null && id2childNodes.get(right.id).contains(node.id));
         }
 
         ArrayList<ArrayList<Set<Integer>>> returnTrueLeftPaths() {
