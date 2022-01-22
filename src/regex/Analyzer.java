@@ -397,18 +397,30 @@ public class Analyzer {
                 // 如果path2在path1中，视作path1_1 + path1_2 + path1_3中的path1_2与path2有重叠
                 // 把path1_1 + path1_2 & path2 + path1_3放入result
                 if (path2InPath1) {
+                    boolean rawPathHaveNoneSet = false;
                     // charSet1是path1_2 & path2，这一步为在其后添加path1_3
                     for (int j = path2.size(); j < path1.size(); j++) {
+                        if (path1.get(j).size()==0) {
+                            rawPathHaveNoneSet = true;
+                            break;
+                        }
                         charSet1.add(new HashSet<>(path1.get(j)));
                     }
                     // 构造tmpResult = path1_1
                     ArrayList<Set<Integer>> tmpResult = new ArrayList<Set<Integer>>();
                     for (int j = 0; j < i; j++) {
+                        if (path1.get(j).size()==0) {
+                            rawPathHaveNoneSet = true;
+                            break;
+                        }
                         tmpResult.add(new HashSet<>(path1.get(j)));
                     }
+                    if (rawPathHaveNoneSet) continue;
                     // 使tmpResult = path1_1 + path1_2 & path2 + path1_3
-                    tmpResult.addAll(charSet1);
-                    result.add(tmpResult);
+                    else {
+                        tmpResult.addAll(charSet1);
+                        result.add(tmpResult);
+                    }
                 }
             }
 

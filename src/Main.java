@@ -113,7 +113,8 @@ public class Main {
         // testSingleRegex("^(\\s*)[-*\\w\\xA0-\\uFFFF]*\\|(?!=)"); // false
         // testSingleRegex("(=\\s*)[-\\w\\xA0-\\uFFFF]+(?=\\s*$)"); // false，同上，作为中间加了内容的两个counting，\s*[-\w\xA0-\uFFFF]+与\s*、\s*与[-\w\xA0-\uFFFF]+\s*两种都不可能重合出"\u2028"
 
-        testDataSet("prism.txt");
+        // testDataSet("prism.txt");
+        testSingleRegex("<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|[^\\s\\S])*>))*>))*>))*>");
     }
 
     private static void testSingleRegex(String regex) {
