@@ -21,10 +21,10 @@ public class Analyzer {
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
-    // private final boolean POA = true;
-    private final boolean POA = false;
-    private final boolean SLQ = true;
-    // private final boolean SLQ = false;
+    private final boolean POA = true;
+    // private final boolean POA = false;
+    // private final boolean SLQ = true;
+    private final boolean SLQ = false;
 
     String regex;
     int maxLength;
@@ -534,7 +534,7 @@ public class Analyzer {
                             attackMsg += type;
                             attackMsg += ",";
                             // pre
-                            attackMsg += Base64.getEncoder().encodeToString("".getBytes("utf-8"));
+                            attackMsg += Base64.getEncoder().encodeToString(pre.getBytes("utf-8"));
                             attackMsg += ",";
                             // pump
                             attackMsg += Base64.getEncoder().encodeToString(pump.getBytes("utf-8"));
