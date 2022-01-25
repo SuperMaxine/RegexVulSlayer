@@ -74,6 +74,10 @@ public class Analyzer {
         root = buildTree(rawPattern.root, new HashSet<>());
         // System.out.println("flowchart TD");
         // printTree(root, true);
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return;
+        }
         // 对原始树进行优化，生成新树
         root = buildFinalTree(root);
         // 生成所有字符集，生成字符集只改变了Pattern.Node的charSet，并没有改变tree中LeafNode的path，还需注意
@@ -82,6 +86,10 @@ public class Analyzer {
         generateAllBigCharSet();
         // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
         // printTree(root, true);
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return;
+        }
         // 对新树生成所有路径
         // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
         generateAllPath(root, false);
@@ -90,6 +98,12 @@ public class Analyzer {
         // 记录结束时间
         long endTime = System.currentTimeMillis();
         System.out.println("Build tree cost time: " + (endTime - startTime) + "ms");
+
+
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return;
+        }
 
         // --------------------生成树阶段结束，对漏洞进行攻击阶段开始-----------------------------
 
@@ -1171,6 +1185,10 @@ public class Analyzer {
      * @param root 根节点
      */
     private void generateAllPath(LeafNode root, boolean inLookaround) {
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return;
+        }
         if (root == null) {
             return;
         }
@@ -1228,6 +1246,11 @@ public class Analyzer {
             ((LinkNode)node.father).replaceChild(node, copyGroupTree(rawGroupRoot, groupIndex2LocalIndex.get(((BackRefNode)node).groupIndex), node.father));
         }
 
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return null;
+        }
+
         // 2. 判断是否在前部加入.{0,3}
         if (branchAtFirst(root) == 1) {
             // 在前部加入.{0,3}
@@ -1237,6 +1260,10 @@ public class Analyzer {
             root = new ConnectNode(dotTree, root, new HashSet<>());
         }
 
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return null;
+        }
 
         // 3. 是将结尾的lookaround拿出还是在尾部添加[\s\S]*
         // a. 如果结尾单独一个lookaround，则需要把lookaround拿出来缀在末尾
@@ -1267,6 +1294,10 @@ public class Analyzer {
      * @return 拷贝出来的新节点
      */
     private LeafNode copyGroupTree(LeafNode root, int localIndex, LeafNode father) {
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return null;
+        }
         LeafNode result = null;
         if (root == null){
             return null;
@@ -1302,6 +1333,10 @@ public class Analyzer {
      * @return 本层递归节点需要返回的LeafNode
      */
     private LeafNode buildTree(Pattern.Node root, Set<Integer> rawgroupNums) {
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return null;
+        }
         LeafNode result = null;
         LeafNode me = null;
         LeafNode brother = null;
@@ -1482,6 +1517,10 @@ public class Analyzer {
     private void generateAllBigCharSet() {
         // 遍历化bigCharSetMap节点
         for (Map.Entry<Pattern.Node, Set<Integer>> entry : bigCharSetMap.entrySet()) {
+            if(Thread.currentThread().isInterrupted()){
+                System.out.println("线程请求中断...");
+                return;
+            }
             Pattern.CharProperty root = (Pattern.CharProperty) entry.getKey();
             generateBigCharSet(root);
         }
@@ -1560,6 +1599,10 @@ public class Analyzer {
      * @return 遇到实际字符返回false，可空返回true
      */
     private boolean searchLookaroundAtLast(LeafNode root) {
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return false;
+        }
         if (root == null || root.actualNode instanceof Pattern.CharProperty || root.actualNode instanceof Pattern.SliceNode || root.actualNode instanceof Pattern.BnM) {
             return false;
         }
@@ -1607,6 +1650,10 @@ public class Analyzer {
      * @return "实际字符"开头返回0，遇到可空字符返回2，遇到分支返回1
      */
     private int branchAtFirst (LeafNode root) {
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return 0;
+        }
         if (root.actualNode instanceof Pattern.CharProperty || root.actualNode instanceof Pattern.SliceNode || root.actualNode instanceof Pattern.BnM) {
             return 0;
         }

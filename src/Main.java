@@ -11,7 +11,7 @@ import static java.lang.Thread.sleep;
  */
 public class Main {
     public static void main(String[] args) {
-        testDataSet("prism.txt");
+        testDataSet("regulator-node-regex.txt");
         // testSingleRegex("[_$a-z\\xA0-\\uFFFF][$\\w\\xA0-\\uFFFF]*(?=\\s*=>)");
     }
 
@@ -45,7 +45,12 @@ public class Main {
         while (true) {
             try {
                 if (!((str = bufferedReader.readLine()) != null)) break;
-                regexAnalyzeLimitTime(str, count, file);
+                if (count <= 0) {
+                    count++;
+                    continue;
+                }
+                Tester t = new Tester();
+                t.regexAnalyzeLimitTime(str, count, file);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -65,8 +70,10 @@ public class Main {
             e.printStackTrace();
         }
     }
+}
 
-    static class attackResult {
+class Tester {
+    class attackResult {
         public boolean attackable;
         public String attackMsg;
 
@@ -81,7 +88,7 @@ public class Main {
         }
     }
 
-    private static void regexAnalyzeLimitTime(String regex, int id, String file) {
+    public void regexAnalyzeLimitTime(String regex, int id, String file) {
         attackResult attackMsg;
         final ExecutorService exec = Executors.newFixedThreadPool(1);
         Callable<attackResult> call = new Callable<attackResult>() {
@@ -114,7 +121,7 @@ public class Main {
         try {
             future = exec.submit(call);
             //返回值类型为限制的方法的返回值类型
-            attackMsg = future.get(1000 * 60, TimeUnit.MILLISECONDS); //任务处理超时时间设为 5 秒
+            attackMsg = future.get(1000 * 5, TimeUnit.MILLISECONDS); //任务处理超时时间设为 5 秒
 
             result += id + "," + base64Regex + "," + attackMsg.attackable + "," + attackMsg.attackMsg + "\n";
         } catch (TimeoutException ex) {
