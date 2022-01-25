@@ -21,10 +21,10 @@ public class Analyzer {
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
-    private final boolean POA = true;
-    // private final boolean POA = false;
-    // private final boolean SLQ = true;
-    private final boolean SLQ = false;
+    // private final boolean POA = true;
+    private final boolean POA = false;
+    private final boolean SLQ = true;
+    // private final boolean SLQ = false;
 
     String regex;
     int maxLength;
@@ -232,6 +232,10 @@ public class Analyzer {
         if (SLQ) {
             Enumerator preEnum = new Enumerator(new ArrayList<>());
             for (LeafNode node : countingNodes) {
+                if(Thread.currentThread().isInterrupted()){
+                    System.out.println("线程请求中断...");
+                    return;
+                }
                 // 如果cmax小于100或后缀可空，则不需要检查
                 if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) continue;
                 // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
@@ -249,6 +253,10 @@ public class Analyzer {
                     // SLQ2：counting开头不可空，判断前缀是否是中缀的子串，如果有重叠，测试""+(中缀&前缀）*n+"\b\n\b"
                     for (ArrayList<Set<Integer>> pumpPath : node.paths) {
                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+                            if(Thread.currentThread().isInterrupted()){
+                                System.out.println("线程请求中断...");
+                                return;
+                            }
                             if (prePath.size() == 0) continue;
                             // if (isPath2InPath1(pumpPath, prePath)) {
                             //     Enumerator pumpEnum = new Enumerator(pumpPath);
