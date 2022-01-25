@@ -127,8 +127,8 @@ public class Analyzer {
 
         if (OneCouting) {
             for (LeafNode node : countingNodes) {
-                for (int i = 0 ; i < node.paths.size() ; i++) {
-                    for (int j = i + 1; j < node.paths.size(); j++) {
+                for (int i = 0 ; i < node.paths.size() && !Thread.currentThread().isInterrupted(); i++) {
+                    for (int j = i + 1; j < node.paths.size() && !Thread.currentThread().isInterrupted(); j++) {
                         ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.paths.get(i), node.paths.get(j));
                         if(pumpPath.size() != 0) {
                             for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
@@ -148,8 +148,8 @@ public class Analyzer {
         }
 
         if (POA) {
-            for (int i = 0; i < countingNodes.size(); i++) {
-                for (int j = i + 1; j < countingNodes.size(); j++) {
+            for (int i = 0; i < countingNodes.size() && !Thread.currentThread().isInterrupted(); i++) {
+                for (int j = i + 1; j < countingNodes.size() && !Thread.currentThread().isInterrupted(); j++) {
                     // 判断嵌套、直接相邻，以及夹着内容相邻
                     // 嵌套结构跳过不测
                     if (isNode1ChildOfNode2(countingNodes.get(i), countingNodes.get(j)) || isNode1ChildOfNode2(countingNodes.get(j), countingNodes.get(i))) {
@@ -167,6 +167,10 @@ public class Analyzer {
                             // 说明两者直接相邻
                             for (ArrayList<Set<Integer>> path1 : countingNodes.get(i).paths) {
                                 for (ArrayList<Set<Integer>> path2 : countingNodes.get(j).paths) {
+                                    if(Thread.currentThread().isInterrupted()){
+                                        System.out.println("线程请求中断...");
+                                        return;
+                                    }
                                     ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
@@ -191,6 +195,10 @@ public class Analyzer {
                             // \w+0 vs \d+
                             for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.paths, midPathsAndFrontNode.getKey())) {
                                 for (ArrayList<Set<Integer>> path2 : backNode.paths) {
+                                    if(Thread.currentThread().isInterrupted()){
+                                        System.out.println("线程请求中断...");
+                                        return;
+                                    }
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         for (ArrayList<Set<Integer>> prePath : prePaths) {
@@ -209,6 +217,10 @@ public class Analyzer {
                             // \w+ vs 0\d+
                             for (ArrayList<Set<Integer>> path1 : splicePath(midPathsAndFrontNode.getKey(), backNode.paths)) {
                                 for (ArrayList<Set<Integer>> path2 : frontNode.paths) {
+                                    if(Thread.currentThread().isInterrupted()){
+                                        System.out.println("线程请求中断...");
+                                        return;
+                                    }
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         for (ArrayList<Set<Integer>> prePath : prePaths) {
