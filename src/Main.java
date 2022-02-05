@@ -11,8 +11,14 @@ import static java.lang.Thread.sleep;
  */
 public class Main {
     public static void main(String[] args) {
-        testDataSet("regulator-node-regex.txt");
-        // testSingleRegex("[_$a-z\\xA0-\\uFFFF][$\\w\\xA0-\\uFFFF]*(?=\\s*=>)");
+        // log begin time
+        long beginTime = System.currentTimeMillis();
+        // testDataSet("226.txt");
+        testSingleRegex("^\\++|\\++$");
+
+        // log end time and print run time
+        long endTime = System.currentTimeMillis();
+        System.out.println("Total run time: " + (endTime - beginTime) + "ms");
     }
 
     private static void testSingleRegex(String regex) {

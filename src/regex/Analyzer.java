@@ -169,9 +169,9 @@ public class Analyzer {
                         // 找到两者的公共父节点，然后求出两者之间夹着的路径
                         Pair<ArrayList<ArrayList<Set<Integer>>>, LeafNode> midPathsAndFrontNode = getMidAndFrontNode(countingNodes.get(i), countingNodes.get(j));
 
-                        LeafNode node1 = countingNodes.get(i);
-                        LeafNode node2 = countingNodes.get(j);
-                        ArrayList<ArrayList<Set<Integer>>> debugMidPaths = midPathsAndFrontNode.getKey();
+                        // LeafNode node1 = countingNodes.get(i);
+                        // LeafNode node2 = countingNodes.get(j);
+                        // ArrayList<ArrayList<Set<Integer>>> debugMidPaths = midPathsAndFrontNode.getKey();
 
                         if (midPathsAndFrontNode.getKey().size() == 0) {
                             // 说明两者直接相邻
@@ -262,13 +262,32 @@ public class Analyzer {
                 if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) continue;
                 // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
                 if (haveEmptyBeginning(node)) {
-                    for (ArrayList<Set<Integer>> pumpPath : node.paths)  {
-                        if(Thread.currentThread().isInterrupted()){
-                            System.out.println("线程请求中断...");
-                            return;
+                    if (countingPrePaths.get(node).size() == 0) {
+                        for (ArrayList<Set<Integer>> pumpPath : node.paths) {
+                            if (Thread.currentThread().isInterrupted()) {
+                                System.out.println("线程请求中断...");
+                                return;
+                            }
+                            Enumerator pumpEnum = new Enumerator(pumpPath);
+                            if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
                         }
-                        Enumerator pumpEnum = new Enumerator(pumpPath);
-                        if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
+                    }
+                    else {
+                        for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+                            if(Thread.currentThread().isInterrupted()){
+                                System.out.println("线程请求中断...");
+                                return;
+                            }
+                            preEnum = new Enumerator(prePath);
+                            for (ArrayList<Set<Integer>> pumpPath : node.paths) {
+                                if (Thread.currentThread().isInterrupted()) {
+                                    System.out.println("线程请求中断...");
+                                    return;
+                                }
+                                Enumerator pumpEnum = new Enumerator(pumpPath);
+                                if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
+                            }
+                        }
                     }
                 }
                 else {
@@ -790,6 +809,11 @@ public class Analyzer {
                         this.paths.add(newPath);
                     }
                 }
+            }
+
+            if(Thread.currentThread().isInterrupted()){
+                System.out.println("线程请求中断...");
+                return;
             }
 
             Collections.sort((this.paths), new Comparator<ArrayList<Set<Integer>>>() {
