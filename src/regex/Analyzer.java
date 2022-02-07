@@ -6,7 +6,6 @@ import redos.regex.redosPattern;
 
 import java.io.UnsupportedEncodingException;
 import java.util.*;
-import java.util.logging.Level;
 
 /**
  * @author SuperMaxine
@@ -18,6 +17,7 @@ public class Analyzer {
     private static final Pattern noneSpaceP = Pattern.compile("\\S");
     private static final Pattern wordP = Pattern.compile("\\w");
     private static final Pattern AllP = Pattern.compile("[\\s\\S]");
+    private static final Pattern noneWordP = Pattern.compile("\\W");
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
@@ -46,6 +46,7 @@ public class Analyzer {
     LeafNode root;
     private ArrayList<LeafNode> countingNodes;
     private Map<LeafNode, ArrayList<ArrayList<Set<Integer>>>> countingPrePaths;
+    private Map<LeafNode, String> countingPreRegex;
     private int id;
     private Map<Integer, Set<Integer>> id2childNodes;
 
@@ -64,6 +65,7 @@ public class Analyzer {
 
         countingNodes = new ArrayList<>();
         countingPrePaths = new HashMap<>();
+        countingPreRegex = new HashMap<>();
         id = 0;
         id2childNodes = new HashMap<>();
 
@@ -93,8 +95,8 @@ public class Analyzer {
         // 对新树生成所有路径
         // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
         generateAllPath(root, false);
-        // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
-        // printTree(root, true);
+        System.out.println("\n\n-----------------------\n\n\nflowchart TD");
+        printTree(root, true);
         // 记录结束时间
         long endTime = System.currentTimeMillis();
         System.out.println("Build tree cost time: " + (endTime - startTime) + "ms");
@@ -114,6 +116,7 @@ public class Analyzer {
                 return;
             }
             ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+            String preRegex = generatePreRegex(node);
             Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
                 @Override
                 public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
@@ -121,6 +124,8 @@ public class Analyzer {
                 }
             });
             countingPrePaths.put(node, prePaths);
+            countingPreRegex.put(node, preRegex);
+            System.out.println("id: " + node.id + " preRegex: " + preRegex);
             // System.out.println("\n" + node.toString());
             // System.out.println(printPaths(prePaths, false));
             // Enumerator pre = new Enumerator(prePaths.get(0));
@@ -322,7 +327,7 @@ public class Analyzer {
                                     // System.out.println("pump:");
                                     // System.out.println(printPath(pumpPath));
                                     if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
-                                    // System.out.println("\n----------\n");
+                                    System.out.println("\n----------\n");
                                 }
                             }
                         }
@@ -544,10 +549,10 @@ public class Analyzer {
             while (pumpEnum.hasNext() && !Thread.currentThread().isInterrupted()) {
                 String pump = pumpEnum.next();
                 double matchingStepCnt;
-                if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
+                if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 1000000);
                 else matchingStepCnt = testPattern.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
                 // System.out.println(matchingStepCnt);
-                if (matchingStepCnt > 1e5) {
+                if (matchingStepCnt > 1e6) {
                     attackMsg = "";
                     try {
                         // type
@@ -579,10 +584,10 @@ public class Analyzer {
                 while (pumpEnum.hasNext() && !Thread.currentThread().isInterrupted()) {
                     String pump = pumpEnum.next();
                     double matchingStepCnt;
-                    if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
+                    if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 1000000);
                     else matchingStepCnt = testPattern.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
                     // System.out.println(matchingStepCnt);
-                    if (matchingStepCnt > 1e5) {
+                    if (matchingStepCnt > 1e6) {
                         attackMsg = "";
                         try {
                             // type
@@ -712,16 +717,17 @@ public class Analyzer {
         boolean beginInPath = false;
         boolean endInPath = false;
         int id;
+        String SelfRegex = "";
 
-        LeafNode (Set<Integer> groupNums) {
+        LeafNode (Set<Integer> groupNums, Pattern.Node actualNode) {
             this.groupNums = new HashSet<Integer>(groupNums);
             this.paths = new ArrayList<>();
+            this.actualNode = actualNode;
         }
 
         LeafNode copy(LeafNode father) {
-            LeafNode result = new LeafNode(new HashSet<>());
+            LeafNode result = new LeafNode(new HashSet<>(), actualNode);
             result.paths = new ArrayList<>(this.paths);
-            result.actualNode = actualNode;
             result.father = father;
             return result;
         }
@@ -731,14 +737,49 @@ public class Analyzer {
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
+                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +printPaths(paths, true)+"\"]");
+        }
+
+        void generateSelfRegex() {
+            if (this.actualNode == null) return;
+
+            if (this.actualNode instanceof Pattern.CharProperty) {
+                Pattern.CharProperty cp = (Pattern.CharProperty) this.actualNode;
+                if (cp.charSet.size() != 0) {
+                    this.SelfRegex += "[";
+                    if (setsEquals(cp.charSet, Dot)) this.SelfRegex += ".";
+                    else if (setsEquals(cp.charSet, Bound)) this.SelfRegex += "\\b";
+                    else if (setsEquals(cp.charSet, Space)) this.SelfRegex += "\\s";
+                    else if (setsEquals(cp.charSet, noneSpace)) this.SelfRegex += "\\S";
+                    else if (setsEquals(cp.charSet, All)) this.SelfRegex += "\\s\\S";
+                    else if (setsEquals(cp.charSet, word)) this.SelfRegex += "\\w";
+                    else if (setsEquals(cp.charSet, noneWord)) this.SelfRegex += "\\W";
+                    else {
+                        this.SelfRegex += cp.selfRegex;
+                    }
+                    this.SelfRegex += "]";
+                }
+            }
+            else if (this.actualNode instanceof Pattern.SliceNode) {
+                Pattern.SliceNode sn = (Pattern.SliceNode) this.actualNode;
+                for (int i : sn.buffer) {
+                    this.SelfRegex += (char) i;
+                }
+            }
+            else if (this.actualNode instanceof Pattern.BnM) {
+                Pattern.BnM bn = (Pattern.BnM) this.actualNode;
+                for (int i : bn.buffer) {
+                    this.SelfRegex += (char) i;
+                }
+            }
         }
     }
 
     // 能够连接其他节点的类拓展自LinkNode
     private abstract class LinkNode extends LeafNode {
-        LinkNode(Set<Integer> groupNums) {
-            super(groupNums);
+        LinkNode(Set<Integer> groupNums, Pattern.Node actualNode) {
+            super(groupNums, actualNode);
         }
 
         abstract void replaceChild(LeafNode oldNode, LeafNode newNode);
@@ -752,7 +793,7 @@ public class Analyzer {
         ArrayList<ArrayList<Set<Integer>>> rightPaths;
 
         ConnectNode (LeafNode left, LeafNode right, Set<Integer> groupNums) {
-            super(groupNums);
+            super(groupNums, null);
             this.left = left;
             this.right = right;
 
@@ -825,6 +866,14 @@ public class Analyzer {
         }
 
         @Override
+        void generateSelfRegex(){
+            if(left != null)
+                this.SelfRegex += left.SelfRegex;
+            if(right != null)
+                this.SelfRegex += right.SelfRegex;
+        }
+
+        @Override
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             if (left == oldNode) {
                 left = newNode;
@@ -879,6 +928,7 @@ public class Analyzer {
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
+                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -889,10 +939,9 @@ public class Analyzer {
         Map<LeafNode, ArrayList<ArrayList<Set<Integer>>>> childrenPaths;
 
         BranchNode (Pattern.Node actualNode, Set<Integer> groupNums) {
-            super(groupNums);
+            super(groupNums, actualNode);
             children = new ArrayList<>();
             childrenPaths = new HashMap<>();
-            this.actualNode = actualNode;
         }
 
         void addChild (LeafNode child) {
@@ -929,6 +978,24 @@ public class Analyzer {
         }
 
         @Override
+        void generateSelfRegex() {
+            this.SelfRegex = "(";
+            int count = 0;
+            for (LeafNode child : children) {
+                if(Thread.currentThread().isInterrupted()){
+                    System.out.println("线程请求中断...");
+                    return;
+                }
+                if (child != null) {
+                    if (count != 0) this.SelfRegex += "|";
+                    this.SelfRegex += child.SelfRegex;
+                    count++;
+                }
+            }
+            this.SelfRegex += ")";
+        }
+
+        @Override
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             for (int i = 0; i < children.size(); i++) {
                 if(Thread.currentThread().isInterrupted()){
@@ -958,6 +1025,7 @@ public class Analyzer {
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
+                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -970,12 +1038,11 @@ public class Analyzer {
         ArrayList<ArrayList<Set<Integer>>> atomPaths;
 
         LoopNode (int cmin, int cmax, LeafNode atom, Pattern.Node actualNode, Set<Integer> groupNums) {
-            super(groupNums);
+            super(groupNums, actualNode);
             this.cmin = cmin;
             this.cmax = cmax;
             this.atom = atom;
             if (atom != null) atom.father = this;
-            this.actualNode = actualNode;
         }
 
         void generatePaths() {
@@ -1046,6 +1113,13 @@ public class Analyzer {
         }
 
         @Override
+        void generateSelfRegex(){
+            if (atom != null) {
+                this.SelfRegex += atom.SelfRegex + "{" + cmin + "," + (cmax > 100 ? "100" : cmax) + "}";
+            }
+        }
+
+        @Override
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             this.atom = newNode;
             if (newNode != null) newNode.father = this;
@@ -1066,6 +1140,7 @@ public class Analyzer {
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + "cmin = " + cmin + "\\ncmax = " + cmax + "\\n"
+                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1079,8 +1154,8 @@ public class Analyzer {
         LeafNode atom;
         lookaroundType type;
 
-        LookaroundNode(LeafNode atom, lookaroundType type, Set<Integer> groupNums) {
-            super(groupNums);
+        LookaroundNode(LeafNode atom, lookaroundType type, Set<Integer> groupNums, Pattern.Node actualNode) {
+            super(groupNums, actualNode);
             this.atom = atom;
             this.type = type;
             if (atom != null) atom.father = this;
@@ -1096,6 +1171,26 @@ public class Analyzer {
         }
 
         @Override
+        void generateSelfRegex(){
+            if (atom != null) {
+                switch (type) {
+                    case Pos:
+                        this.SelfRegex += "(?=" + atom.SelfRegex + ")";
+                        break;
+                    case Neg:
+                        this.SelfRegex += "(?!" + atom.SelfRegex + ")";
+                        break;
+                    case Behind:
+                        this.SelfRegex += "(?<=" + atom.SelfRegex + ")";
+                        break;
+                    case NotBehind:
+                        this.SelfRegex += "(?<!" + atom.SelfRegex + ")";
+                        break;
+                }
+            }
+        }
+
+        @Override
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             this.atom = newNode;
             if (newNode != null) newNode.father = this;
@@ -1104,7 +1199,7 @@ public class Analyzer {
 
         @Override
         LookaroundNode copy(LeafNode father) {
-            LookaroundNode result =  new LookaroundNode(null, type, new HashSet<>());
+            LookaroundNode result =  new LookaroundNode(null, type, new HashSet<>(), this.actualNode);
             result.father = father;
             return result;
         }
@@ -1116,6 +1211,7 @@ public class Analyzer {
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + "type = " + type.toString() + "\\n"
+                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1123,14 +1219,14 @@ public class Analyzer {
     // 反向引用
     private class BackRefNode extends LeafNode {
         int groupIndex;
-        BackRefNode (int groupIndex, Set<Integer> groupNums) {
-            super(groupNums);
+        BackRefNode (int groupIndex, Set<Integer> groupNums, Pattern.Node actualNode) {
+            super(groupNums, actualNode);
             this.groupIndex = groupIndex;
         }
 
         @Override
         BackRefNode copy(LeafNode father) {
-            BackRefNode result = new BackRefNode(groupIndex, new HashSet<>());
+            BackRefNode result = new BackRefNode(groupIndex, new HashSet<>(), this.actualNode);
             result.father = father;
             return result;
         }
@@ -1150,8 +1246,7 @@ public class Analyzer {
     // 整个正则的终止符节点
     private class LastNode extends LeafNode {
         LastNode (Pattern.Node lastNode, Set<Integer> groupNums) {
-            super(groupNums);
-            actualNode = lastNode;
+            super(groupNums, lastNode);
         }
 
         @Override
@@ -1162,9 +1257,14 @@ public class Analyzer {
 
     // "^"符号
     private class Begin extends LeafNode {
-        Begin (Set<Integer> groupNums) {
-            super(groupNums);
+        Begin (Set<Integer> groupNums, Pattern.Node actualNode) {
+            super(groupNums, actualNode);
             this.beginInPath = true;
+        }
+
+        @Override
+        void generateSelfRegex() {
+            this.SelfRegex = "^";
         }
 
         @Override
@@ -1173,15 +1273,21 @@ public class Analyzer {
                     +"[\""+ "^" + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
+                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +"\"]");
         }
     }
 
     // "$"符号
     private class End extends LeafNode {
-        End (Set<Integer> groupNums) {
-            super(groupNums);
+        End (Set<Integer> groupNums, Pattern.Node actualNode) {
+            super(groupNums, actualNode);
             this.endInPath = true;
+        }
+
+        @Override
+        void generateSelfRegex() {
+            this.SelfRegex = "$";
         }
 
         @Override
@@ -1190,6 +1296,32 @@ public class Analyzer {
                     +"[\""+ "$" + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
+                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    +"\"]");
+        }
+    }
+
+    // "\b"符号或者"\B"符号，\b为type3，\B为type4
+    private class WordBoundary extends LeafNode {
+        int type;
+        WordBoundary (Set<Integer> groupNums, int type, Pattern.Node actualNode) {
+            super(groupNums, actualNode);
+            this.endInPath = true;
+            this.type = type;
+        }
+
+        @Override
+        void generateSelfRegex() {
+            this.SelfRegex = type == 3 ? "\\b" : "\\B";
+        }
+
+        @Override
+        void print(boolean debug) {
+            System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
+                    +"[\""+ (this.type == 3 ? "\\b" : "\\B") + "\\n"
+                    + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
+                    + (debug ? "id:" + this.id + "\\n" : "")
+                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +"\"]");
         }
     }
@@ -1214,6 +1346,19 @@ public class Analyzer {
             node = father;
         }
         if (result.size() == 0) result.add(new ArrayList<>());
+        return result;
+    }
+
+    private String generatePreRegex(LeafNode countingNode) {
+        LeafNode node = countingNode;
+        String result = "";
+        while (node != this.root && !Thread.currentThread().isInterrupted()) {
+            LeafNode father = node.father;
+            if (father instanceof ConnectNode && ((ConnectNode) father).comeFromRight(node)) {
+                result = (((ConnectNode) father).left == null) ? "" : ((ConnectNode) father).left.SelfRegex + result;
+            }
+            node = father;
+        }
         return result;
     }
 
@@ -1296,6 +1441,7 @@ public class Analyzer {
                 root.paths.add(tmpPath);
             }
         }
+        root.generateSelfRegex();
     }
 
     private void assignId2Node(LeafNode node) {
@@ -1439,7 +1585,7 @@ public class Analyzer {
             return buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.BackRef || root instanceof Pattern.CIBackRef || root instanceof Pattern.GroupRef) {
-            me = new BackRefNode(((Pattern.BackRef)root).groupIndex, groupNums);
+            me = new BackRefNode(((Pattern.BackRef)root).groupIndex, groupNums, root);
             backRefNodes.add(me);
             brother = buildTree(root.next, groupNums);
         }
@@ -1490,16 +1636,15 @@ public class Analyzer {
         else if (root instanceof Pattern.CharProperty){
             generateFullSmallCharSet((Pattern.CharProperty) root);
 
-            me = new LeafNode(groupNums);
+            me = new LeafNode(groupNums, root);
             ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
             tmpPath.add(((Pattern.CharProperty) root).charSet);
             me.paths.add(tmpPath);
-            me.actualNode = root;
 
             brother = buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.SliceNode){
-            me = new LeafNode(groupNums);
+            me = new LeafNode(groupNums, root);
             ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
             for (int i : ((Pattern.SliceNode) root).buffer) {
                 fullSmallCharSet.add(i);
@@ -1509,12 +1654,11 @@ public class Analyzer {
                 tmpPath.add(tmpCharSet);
             }
             me.paths.add(tmpPath);
-            me.actualNode = root;
 
             brother = buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.BnM) {
-            me = new LeafNode(groupNums);
+            me = new LeafNode(groupNums, root);
             ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
             for (int i : ((Pattern.BnM) root).buffer) {
                 fullSmallCharSet.add(i);
@@ -1524,36 +1668,41 @@ public class Analyzer {
                 tmpPath.add(tmpCharSet);
             }
             me.paths.add(tmpPath);
-            me.actualNode = root;
 
             brother = buildTree(root.next, groupNums);
         }
 
         // lookaround处理
         else if (root instanceof Pattern.Pos){
-            me = new LookaroundNode(buildTree(((Pattern.Pos)root).cond, groupNums), lookaroundType.Pos, groupNums);
+            me = new LookaroundNode(buildTree(((Pattern.Pos)root).cond, groupNums), lookaroundType.Pos, groupNums, root);
             brother = buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.Neg){
-            me = new LookaroundNode(buildTree(((Pattern.Neg)root).cond, groupNums), lookaroundType.Neg, groupNums);
+            me = new LookaroundNode(buildTree(((Pattern.Neg)root).cond, groupNums), lookaroundType.Neg, groupNums, root);
             brother = buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.Behind){
-            me = new LookaroundNode(buildTree(((Pattern.Behind)root).cond, groupNums), lookaroundType.Behind, groupNums);
+            me = new LookaroundNode(buildTree(((Pattern.Behind)root).cond, groupNums), lookaroundType.Behind, groupNums, root);
             brother = buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.NotBehind){
-            me = new LookaroundNode(buildTree(((Pattern.NotBehind)root).cond, groupNums), lookaroundType.NotBehind, groupNums);
+            me = new LookaroundNode(buildTree(((Pattern.NotBehind)root).cond, groupNums), lookaroundType.NotBehind, groupNums, root);
             brother = buildTree(root.next, groupNums);
         }
 
         // "^"、"$"
         else if (root instanceof Pattern.Begin || root instanceof Pattern.Caret || root instanceof Pattern.UnixCaret) {
-            me = new Begin(groupNums);
+            me = new Begin(groupNums, root);
             brother = buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.Dollar || root instanceof Pattern.UnixDollar) {
-            me = new End(groupNums);
+            me = new End(groupNums, root);
+            brother = buildTree(root.next, groupNums);
+        }
+
+        // "\b"、"\B"
+        else if (root instanceof Pattern.Bound) {
+            me = new WordBoundary(groupNums, ((Pattern.Bound) root).type, root);
             brother = buildTree(root.next, groupNums);
         }
 
@@ -1576,10 +1725,87 @@ public class Analyzer {
      */
     private void generateFullSmallCharSet(Pattern.CharProperty root) {
         Set<Integer> charSet = new HashSet<>();
-        for (int i = 0; i < 65536 && !Thread.currentThread().isInterrupted(); i++) {
+        root.selfRegex = "";
+        int count = 0;
+        for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
             if (root.isSatisfiedBy(i)) {
                 charSet.add(i);
+
+                count++;
+                // if (count == 1) {
+                //     if (i==34||i==91||i==92) {
+                //         root.selfRegex += "\\"+(char) i;
+                //     }
+                //     else if (i==9) {
+                //         root.selfRegex += "\\t";
+                //     }
+                //     else if (i==10) {
+                //         root.selfRegex += "\\n";
+                //     }
+                //     else if (i==13) {
+                //         root.selfRegex += "\\r";
+                //     }
+                //     else if (i==11) {
+                //         root.selfRegex += "\\v";
+                //     }
+                //     else if (i==12) {
+                //         root.selfRegex += "\\f";
+                //     }
+                //     else if (i==8) {
+                //         root.selfRegex += "\\b";
+                //     }
+                //     else if (i==92) {
+                //         root.selfRegex += "\\\\";
+                //     }
+                //     else if (i==34) {
+                //         root.selfRegex += "\\\"";
+                //     }
+                //     else if (i==39) {
+                //         root.selfRegex += "\\\'";
+                //     }
+                //     else if (i==96) {
+                //         root.selfRegex += "\\`";
+                //     }
+                //     else if (i==0) {
+                //         root.selfRegex += "\\0";
+                //     }
+                //     else if (i==1) {
+                //         root.selfRegex += "\\x01";
+                //     }
+                //     else {
+                //         root.selfRegex += (char) i;
+                //     }
+                // }
+                // if (count == 1) {
+                //     String hex = Integer.toHexString(i);
+                //     while (hex.length() < 4) {
+                //         hex = "0" + hex;
+                //     }
+                //     root.selfRegex += "\\u"+hex;
+                // }
+                if (count == 1) {
+                    String hex = Integer.toHexString(i);
+                    while (hex.length() < 2) {
+                        hex = "0" + hex;
+                    }
+                    root.selfRegex += "\\x"+hex;
+                }
             }
+            else {
+                if (count > 1) {
+                    // root.selfRegex += "-" + ((i==34||i==91||i==92) ? "\\" : "") + (char) (i - 1);
+                    String hex = Integer.toHexString(i - 1);
+                    while (hex.length() < 2) {
+                        hex = "0" + hex;
+                    }
+                    root.selfRegex += "-" + "\\x"+hex;
+                }
+                count = 0;
+            }
+        }
+        if (count > 1) {
+            String hex = Integer.toHexString(255);
+            root.selfRegex += "-" + "\\x"+hex;
         }
         root.charSet.addAll(charSet);
         if (charSet.size() < 128) {
@@ -1610,6 +1836,18 @@ public class Analyzer {
      * @param root
      */
     private void generateBigCharSet(Pattern.CharProperty root) {
+
+        if (bigCharSetMap.size() > 20) {
+            Set<Integer> charSet = new HashSet<>();
+            for (int i = 0; i < 128 && !Thread.currentThread().isInterrupted(); i++) {
+                if (root.isSatisfiedBy(i)) {
+                    charSet.add(i);
+                }
+            }
+            root.charSet.addAll(charSet);
+            return;
+        }
+
         Random rand = new Random();
         Set<Integer> result = new HashSet<>();
 
@@ -1840,6 +2078,14 @@ public class Analyzer {
         return result;
     }
 
+    //获取特定类别的节点set
+    Set<Integer> Dot = getNodeCharSet(DotP.root.next);
+    Set<Integer> Bound = getNodeCharSet(BoundP.root.next);
+    Set<Integer> Space = getNodeCharSet(SpaceP.root.next);
+    Set<Integer> noneSpace = getNodeCharSet(noneSpaceP.root.next);
+    Set<Integer> word = getNodeCharSet(wordP.root.next);
+    Set<Integer> All = getNodeCharSet(AllP.root.next);
+    Set<Integer> noneWord = getNodeCharSet(noneWordP.root.next);
     /**
      * 用来生成一条ArrayList<Set<Integer>>的路径的字符串
      * @param path ArrayList<Set<Integer>>格式的路径
@@ -1847,13 +2093,6 @@ public class Analyzer {
      */
     private String printPath (ArrayList<Set<Integer>> path) {
         String result = "";
-        //获取特定类别的节点set
-        Set<Integer> Dot = getNodeCharSet(DotP.root.next);
-        Set<Integer> Bound = getNodeCharSet(BoundP.root.next);
-        Set<Integer> Space = getNodeCharSet(SpaceP.root.next);
-        Set<Integer> noneSpace = getNodeCharSet(noneSpaceP.root.next);
-        Set<Integer> word = getNodeCharSet(wordP.root.next);
-        Set<Integer> All = getNodeCharSet(AllP.root.next);
 
         int indexP = 0;
         for (Set<Integer> s : path) {
@@ -1861,17 +2100,17 @@ public class Analyzer {
                 result += ",";
             }
             result += "[";
-            if (equals(s, Dot)) {
+            if (setsEquals(s, Dot)) {
                 result += ".";
-            } else if (equals(s, Bound)) {
+            } else if (setsEquals(s, Bound)) {
                 result += "\\b";
-            } else if (equals(s, Space)) {
+            } else if (setsEquals(s, Space)) {
                 result += "\\s";
-            } else if (equals(s, noneSpace)) {
+            } else if (setsEquals(s, noneSpace)) {
                 result += "\\S";
-            } else if (equals(s, word)) {
+            } else if (setsEquals(s, word)) {
                 result += "\\w";
-            } else if (equals(s, All)) {
+            } else if (setsEquals(s, All)) {
                 result += "\\s\\S";
             } else if (s.size() > 20) {
                 result += "size(" + s.size() + ")";
@@ -1906,7 +2145,7 @@ public class Analyzer {
      * @param set2
      * @return 内容相同返回true，内容不同返回false
      */
-    public boolean equals(Set<?> set1, Set<?> set2) {
+    public boolean setsEquals(Set<?> set1, Set<?> set2) {
         //null就直接不比了
         if (set1 == null || set2 == null) {
             return false;
