@@ -4,6 +4,9 @@ import javafx.util.Pair;
 import redos.regex.Pattern4Search;
 import redos.regex.redosPattern;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
 
@@ -25,6 +28,21 @@ public class Analyzer {
     private final boolean POA = false;
     private final boolean SLQ = true;
     // private final boolean SLQ = false;
+
+    // private final boolean debugPath = true;
+    private final boolean debugPath = false;
+
+    // private final boolean debugStep = true;
+    private final boolean debugStep = false;
+
+    // private final boolean debugRegex = true;
+    private final boolean debugRegex = false;
+
+    private final boolean debugStuck = true;
+    // private final boolean debugStuck = false;
+
+    private final boolean realTest = true;
+    // private final boolean realTest = false;
 
     String regex;
     int maxLength;
@@ -50,7 +68,7 @@ public class Analyzer {
     private int id;
     private Map<Integer, Set<Integer>> id2childNodes;
 
-    public Analyzer(String regex, int maxLength) {
+    public Analyzer(String regex, int maxLength, int id) {
         this.regex = regex;
         this.maxLength = maxLength;
         fullSmallCharSet = new HashSet<>();
@@ -66,7 +84,6 @@ public class Analyzer {
         countingNodes = new ArrayList<>();
         countingPrePaths = new HashMap<>();
         countingPreRegex = new HashMap<>();
-        id = 0;
         id2childNodes = new HashMap<>();
 
         // 记录开始时间
@@ -99,11 +116,21 @@ public class Analyzer {
         printTree(root, true);
         // 记录结束时间
         long endTime = System.currentTimeMillis();
-        System.out.println("Build tree cost time: " + (endTime - startTime) + "ms");
+        System.out.println("id:"+id+",Build tree cost time: " + (endTime - startTime) + "ms");
 
 
         if(Thread.currentThread().isInterrupted()){
             System.out.println("线程请求中断...");
+            if (debugPath) {
+                try {
+                    attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString("generate all path time out".getBytes("utf-8"));
+                    BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                    writer.write(id + "," + attackMsg + "\n");
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
             return;
         }
 
@@ -113,6 +140,16 @@ public class Analyzer {
         for (LeafNode node : countingNodes) {
             if(Thread.currentThread().isInterrupted()){
                 System.out.println("线程请求中断...");
+                if (debugPath) {
+                    try {
+                        attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString("generate all pre path time out".getBytes("utf-8"));
+                        BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                        writer.write(id + "," + attackMsg + "\n");
+                        writer.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
                 return;
             }
             ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
@@ -125,7 +162,7 @@ public class Analyzer {
             });
             countingPrePaths.put(node, prePaths);
             countingPreRegex.put(node, preRegex);
-            System.out.println("id: " + node.id + " preRegex: " + preRegex);
+            // System.out.println("id: " + node.id + " preRegex: " + preRegex);
             // System.out.println("\n" + node.toString());
             // System.out.println(printPaths(prePaths, false));
             // Enumerator pre = new Enumerator(prePaths.get(0));
@@ -137,6 +174,16 @@ public class Analyzer {
 
         if(Thread.currentThread().isInterrupted()){
             System.out.println("线程请求中断...");
+            if (debugPath) {
+                try {
+                    attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString("generate all pre path time out".getBytes("utf-8"));
+                    BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                    writer.write(id + "," + attackMsg + "\n");
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
             return;
         }
 
@@ -165,12 +212,14 @@ public class Analyzer {
         if (POA) {
             for (int i = 0; i < countingNodes.size() && !Thread.currentThread().isInterrupted(); i++) {
                 for (int j = i + 1; j < countingNodes.size() && !Thread.currentThread().isInterrupted(); j++) {
+                    if (debugPath) attackMsg += "----------------------------------------------------------\nnode1(id:"+countingNodes.get(i).id+") regex:\n"+countingNodes.get(i).SelfRegex+"\nnode2(id:"+countingNodes.get(j).id+") regex:\n"+countingNodes.get(j).SelfRegex+"\n";
                     // 判断嵌套、直接相邻，以及夹着内容相邻
                     // 嵌套结构跳过不测
                     if (isNode1ChildOfNode2(countingNodes.get(i), countingNodes.get(j)) || isNode1ChildOfNode2(countingNodes.get(j), countingNodes.get(i))) {
                         continue;
                     }
                     else {
+                        if (debugStuck) System.out.println("node1: " + countingNodes.get(i).id + " node2: " + countingNodes.get(j).id);
                         // 找到两者的公共父节点，然后求出两者之间夹着的路径
                         Pair<ArrayList<ArrayList<Set<Integer>>>, LeafNode> midPathsAndFrontNode = getMidAndFrontNode(countingNodes.get(i), countingNodes.get(j));
 
@@ -180,22 +229,41 @@ public class Analyzer {
 
                         if (midPathsAndFrontNode.getKey().size() == 0) {
                             // 说明两者直接相邻
+                            if (debugPath) attackMsg += "POA-Direct Adjacent:\nnode1 paths\n" + printPaths(countingNodes.get(i).paths, false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).paths, false) + "\n\n";
                             for (ArrayList<Set<Integer>> path1 : countingNodes.get(i).paths) {
                                 for (ArrayList<Set<Integer>> path2 : countingNodes.get(j).paths) {
                                     if(Thread.currentThread().isInterrupted()){
                                         System.out.println("线程请求中断...");
+                                        if (debugPath) {
+                                            try {
+                                                attackMsg += "\nTraversing paths time out\n";
+                                                attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
+                                            } catch (UnsupportedEncodingException e) {
+                                                e.printStackTrace();
+                                            }
+                                            try {
+                                                BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                                                writer.write(id + "," + attackMsg + "\n");
+                                                writer.close();
+                                            } catch (IOException e) {
+                                                e.printStackTrace();
+                                            }
+                                        }
                                         return;
                                     }
                                     ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
-                                        for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
-                                            if(Thread.currentThread().isInterrupted()){
-                                                System.out.println("线程请求中断...");
-                                                return;
+                                        if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
+                                        if (realTest) {
+                                            for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
+                                                if (Thread.currentThread().isInterrupted()) {
+                                                    System.out.println("线程请求中断...");
+                                                    return;
+                                                }
+                                                Enumerator preEnum = new Enumerator(prePath);
+                                                Enumerator pumpEnum = new Enumerator(pumpPath);
+                                                if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
                                             }
-                                            Enumerator preEnum = new Enumerator(prePath);
-                                            Enumerator pumpEnum = new Enumerator(pumpPath);
-                                            if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
                                         }
                                     }
                                 }
@@ -207,23 +275,44 @@ public class Analyzer {
                             ArrayList<Set<Integer>> pumpPath;
                             LeafNode frontNode = midPathsAndFrontNode.getValue();
                             LeafNode backNode = countingNodes.get(i) == midPathsAndFrontNode.getValue() ? countingNodes.get(j) : countingNodes.get(i);
+
+                            if (debugPath) attackMsg += "POA-Nested:\nnode1 paths\n" + printPaths(countingNodes.get(i).paths, false) + "\nmidPaths:\n" + printPaths(midPathsAndFrontNode.getKey(), false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).paths, false)  + "\n";
+
                             // \w+0 vs \d+
                             for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.paths, midPathsAndFrontNode.getKey())) {
                                 for (ArrayList<Set<Integer>> path2 : backNode.paths) {
                                     if(Thread.currentThread().isInterrupted()){
                                         System.out.println("线程请求中断...");
+                                        if (debugPath) {
+                                            try {
+                                                attackMsg += "\nTraversing paths time out\n";
+                                                attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
+                                            } catch (UnsupportedEncodingException e) {
+                                                e.printStackTrace();
+                                            }
+                                            try {
+                                                BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                                                writer.write(id + "," + attackMsg + "\n");
+                                                writer.close();
+                                            } catch (IOException e) {
+                                                e.printStackTrace();
+                                            }
+                                        }
                                         return;
                                     }
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
-                                        for (ArrayList<Set<Integer>> prePath : prePaths) {
-                                            if(Thread.currentThread().isInterrupted()){
-                                                System.out.println("线程请求中断...");
-                                                return;
+                                        if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
+                                        if (realTest) {
+                                            for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                                if(Thread.currentThread().isInterrupted()){
+                                                    System.out.println("线程请求中断...");
+                                                    return;
+                                                }
+                                                Enumerator preEnum = new Enumerator(prePath);
+                                                Enumerator pumpEnum = new Enumerator(pumpPath);
+                                                if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
                                             }
-                                            Enumerator preEnum = new Enumerator(prePath);
-                                            Enumerator pumpEnum = new Enumerator(pumpPath);
-                                            if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
                                         }
                                     }
                                 }
@@ -234,18 +323,36 @@ public class Analyzer {
                                 for (ArrayList<Set<Integer>> path2 : frontNode.paths) {
                                     if(Thread.currentThread().isInterrupted()){
                                         System.out.println("线程请求中断...");
+                                        if (debugPath) {
+                                            try {
+                                                attackMsg += "\nTraversing paths time out\n";
+                                                attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
+                                            } catch (UnsupportedEncodingException e) {
+                                                e.printStackTrace();
+                                            }
+                                            try {
+                                                BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                                                writer.write(id + "," + attackMsg + "\n");
+                                                writer.close();
+                                            } catch (IOException e) {
+                                                e.printStackTrace();
+                                            }
+                                        }
                                         return;
                                     }
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
-                                        for (ArrayList<Set<Integer>> prePath : prePaths) {
-                                            if(Thread.currentThread().isInterrupted()){
-                                                System.out.println("线程请求中断...");
-                                                return;
+                                        if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
+                                        if (realTest) {
+                                            for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                                if(Thread.currentThread().isInterrupted()){
+                                                    System.out.println("线程请求中断...");
+                                                    return;
+                                                }
+                                                Enumerator preEnum = new Enumerator(prePath);
+                                                Enumerator pumpEnum = new Enumerator(pumpPath);
+                                                if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
                                             }
-                                            Enumerator preEnum = new Enumerator(prePath);
-                                            Enumerator pumpEnum = new Enumerator(pumpPath);
-                                            if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
                                         }
                                     }
                                 }
@@ -256,34 +363,57 @@ public class Analyzer {
             }
         }
 
+        if (Thread.currentThread().isInterrupted()) {
+            System.out.println("线程请求中断...");
+            if (debugPath) {
+                try {
+                    attackMsg += "\nTraversing paths time out\n";
+                    attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                    writer.write(id + "," + attackMsg + "\n");
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            return;
+        }
+
         if (SLQ) {
             Enumerator preEnum = new Enumerator(new ArrayList<>());
             for (LeafNode node : countingNodes) {
+                if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
                 if(Thread.currentThread().isInterrupted()){
                     System.out.println("线程请求中断...");
+                    if (debugPath) {
+                        try {
+                            attackMsg += "\nTraversing paths time out\n";
+                            attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
+                        } catch (UnsupportedEncodingException e) {
+                            e.printStackTrace();
+                        }
+                        try {
+                            BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                            writer.write(id + "," + attackMsg + "\n");
+                            writer.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
                     return;
                 }
                 // 如果cmax小于100或后缀可空，则不需要检查
                 if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) continue;
                 // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
+                if (debugPath) attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.paths, false) +"\n";
                 if (haveEmptyBeginning(node)) {
-                    if (countingPrePaths.get(node).size() == 0) {
-                        for (ArrayList<Set<Integer>> pumpPath : node.paths) {
-                            if (Thread.currentThread().isInterrupted()) {
-                                System.out.println("线程请求中断...");
-                                return;
-                            }
-                            Enumerator pumpEnum = new Enumerator(pumpPath);
-                            if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
-                        }
-                    }
-                    else {
-                        for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
-                            if(Thread.currentThread().isInterrupted()){
-                                System.out.println("线程请求中断...");
-                                return;
-                            }
-                            preEnum = new Enumerator(prePath);
+                    if (debugPath) attackMsg += "SLQ1:\npump paths\n" + printPaths(node.paths, false) + "\n";
+                    if (realTest) {
+                        if (countingPrePaths.get(node).size() == 0) {
                             for (ArrayList<Set<Integer>> pumpPath : node.paths) {
                                 if (Thread.currentThread().isInterrupted()) {
                                     System.out.println("线程请求中断...");
@@ -291,6 +421,23 @@ public class Analyzer {
                                 }
                                 Enumerator pumpEnum = new Enumerator(pumpPath);
                                 if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
+                            }
+                        }
+                        else {
+                            for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+                                if (Thread.currentThread().isInterrupted()) {
+                                    System.out.println("线程请求中断...");
+                                    return;
+                                }
+                                preEnum = new Enumerator(prePath);
+                                for (ArrayList<Set<Integer>> pumpPath : node.paths) {
+                                    if (Thread.currentThread().isInterrupted()) {
+                                        System.out.println("线程请求中断...");
+                                        return;
+                                    }
+                                    Enumerator pumpEnum = new Enumerator(pumpPath);
+                                    if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
+                                }
                             }
                         }
                     }
@@ -301,6 +448,21 @@ public class Analyzer {
                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
                             if(Thread.currentThread().isInterrupted()){
                                 System.out.println("线程请求中断...");
+                                if (debugPath) {
+                                    try {
+                                        attackMsg += "\nTraversing paths time out\n";
+                                        attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
+                                    } catch (UnsupportedEncodingException e) {
+                                        e.printStackTrace();
+                                    }
+                                    try {
+                                        BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                                        writer.write(id + "," + attackMsg + "\n");
+                                        writer.close();
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
                                 return;
                             }
                             if (prePath.size() == 0) continue;
@@ -316,18 +478,20 @@ public class Analyzer {
 
                             ArrayList<ArrayList<Set<Integer>>> pumpPaths = new ArrayList<>();
                             if (isPath2InPath1_returnPaths(pumpPath, prePath, pumpPaths)) {
-                                for (ArrayList<Set<Integer>> pumpPath_ : pumpPaths) {
-                                    if(Thread.currentThread().isInterrupted()){
-                                        System.out.println("线程请求中断...");
-                                        return;
+                                if (debugPath)  attackMsg += "SLQ2" + "\n" + "pre:" + "\n" + printPath(prePath, false) + "\n" + "pump:" + "\n" + printPath(pumpPath, false) + "\n"+ "pumpPaths:" + "\n" + printPaths(pumpPaths, false) + "\n";
+                                if (realTest) {
+                                    for (ArrayList<Set<Integer>> pumpPath_ : pumpPaths) {
+                                        if (Thread.currentThread().isInterrupted()) {
+                                            System.out.println("线程请求中断...");
+                                            return;
+                                        }
+                                        Enumerator pumpEnum = new Enumerator(pumpPath_);
+                                        // System.out.println("pre:");
+                                        // System.out.println(printPath(prePath));
+                                        // System.out.println("pump:");
+                                        // System.out.println(printPath(pumpPath));
+                                        if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
                                     }
-                                    Enumerator pumpEnum = new Enumerator(pumpPath_);
-                                    // System.out.println("pre:");
-                                    // System.out.println(printPath(prePath));
-                                    // System.out.println("pump:");
-                                    // System.out.println(printPath(pumpPath));
-                                    if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
-                                    System.out.println("\n----------\n");
                                 }
                             }
                         }
@@ -337,6 +501,21 @@ public class Analyzer {
 
             }
             System.out.println("[*] SLQ finished");
+        }
+
+        if (debugPath) {
+            try {
+                attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+            try {
+                BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                writer.write(id + "," + attackMsg + "\n");
+                writer.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -549,10 +728,11 @@ public class Analyzer {
             while (pumpEnum.hasNext() && !Thread.currentThread().isInterrupted()) {
                 String pump = pumpEnum.next();
                 double matchingStepCnt;
-                if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 1000000);
+                if (debugStep) System.out.println("pump: " + pump);
+                if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
                 else matchingStepCnt = testPattern.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
-                // System.out.println(matchingStepCnt);
-                if (matchingStepCnt > 1e6) {
+                if (debugStep) System.out.println(matchingStepCnt);
+                if (matchingStepCnt > 1e5) {
                     attackMsg = "";
                     try {
                         // type
@@ -584,10 +764,11 @@ public class Analyzer {
                 while (pumpEnum.hasNext() && !Thread.currentThread().isInterrupted()) {
                     String pump = pumpEnum.next();
                     double matchingStepCnt;
-                    if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 1000000);
+                    if (debugStep) System.out.println("pre:" + pre + "\npump:" + pump);
+                    if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
                     else matchingStepCnt = testPattern.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
-                    // System.out.println(matchingStepCnt);
-                    if (matchingStepCnt > 1e6) {
+                    if (debugStep) System.out.println(matchingStepCnt);
+                    if (matchingStepCnt > 1e5) {
                         attackMsg = "";
                         try {
                             // type
@@ -737,7 +918,7 @@ public class Analyzer {
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +printPaths(paths, true)+"\"]");
         }
 
@@ -764,15 +945,63 @@ public class Analyzer {
             else if (this.actualNode instanceof Pattern.SliceNode) {
                 Pattern.SliceNode sn = (Pattern.SliceNode) this.actualNode;
                 for (int i : sn.buffer) {
-                    this.SelfRegex += (char) i;
+                    this.SelfRegex += int2String(i);
                 }
             }
             else if (this.actualNode instanceof Pattern.BnM) {
                 Pattern.BnM bn = (Pattern.BnM) this.actualNode;
                 for (int i : bn.buffer) {
-                    this.SelfRegex += (char) i;
+                    this.SelfRegex += int2String(i);
                 }
             }
+        }
+    }
+
+    private String int2String(int i) {
+        return int2String(i, false);
+    }
+
+    private String int2String(int i, boolean mermaid) {
+
+        switch (i) {
+            case 7:
+                return "\\a";
+            case 8:
+                return "\\b";
+            case 9:
+                return "\\t";
+            case 10:
+                return "\\n";
+            case 11:
+                return "\\v";
+            case 12:
+                return "\\f";
+            case 13:
+                return "\\r";
+            case 92:
+                return "\\\\";
+            case 39:
+                return "\\'";
+            case 34:
+                return mermaid ? "''" : "\\\"";
+            case 72:
+                return "\\(";
+            case 123:
+                return "\\{";
+            case 91:
+                return "\\[";
+            case 46:
+                return "\\.";
+            case 124:
+                return "\\|";
+            case 42:
+                return "\\*";
+            case 63:
+                return "\\?";
+            case 43:
+                return "\\+";
+            default:
+                return (char) i + "";
         }
     }
 
@@ -928,7 +1157,7 @@ public class Analyzer {
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1025,7 +1254,7 @@ public class Analyzer {
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1140,7 +1369,7 @@ public class Analyzer {
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + "cmin = " + cmin + "\\ncmax = " + cmax + "\\n"
-                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1211,7 +1440,7 @@ public class Analyzer {
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + "type = " + type.toString() + "\\n"
-                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1273,7 +1502,7 @@ public class Analyzer {
                     +"[\""+ "^" + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +"\"]");
         }
     }
@@ -1296,7 +1525,7 @@ public class Analyzer {
                     +"[\""+ "$" + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +"\"]");
         }
     }
@@ -1321,7 +1550,7 @@ public class Analyzer {
                     +"[\""+ (this.type == 3 ? "\\b" : "\\B") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     +"\"]");
         }
     }
@@ -1437,7 +1666,7 @@ public class Analyzer {
             else if (root.actualNode instanceof Pattern.CharProperty) {
                 root.paths = new ArrayList<>();
                 ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
-                tmpPath.add(((Pattern.CharProperty) root.actualNode).charSet);
+                    tmpPath.add(((Pattern.CharProperty) root.actualNode).charSet);
                 root.paths.add(tmpPath);
             }
         }
@@ -1732,57 +1961,6 @@ public class Analyzer {
                 charSet.add(i);
 
                 count++;
-                // if (count == 1) {
-                //     if (i==34||i==91||i==92) {
-                //         root.selfRegex += "\\"+(char) i;
-                //     }
-                //     else if (i==9) {
-                //         root.selfRegex += "\\t";
-                //     }
-                //     else if (i==10) {
-                //         root.selfRegex += "\\n";
-                //     }
-                //     else if (i==13) {
-                //         root.selfRegex += "\\r";
-                //     }
-                //     else if (i==11) {
-                //         root.selfRegex += "\\v";
-                //     }
-                //     else if (i==12) {
-                //         root.selfRegex += "\\f";
-                //     }
-                //     else if (i==8) {
-                //         root.selfRegex += "\\b";
-                //     }
-                //     else if (i==92) {
-                //         root.selfRegex += "\\\\";
-                //     }
-                //     else if (i==34) {
-                //         root.selfRegex += "\\\"";
-                //     }
-                //     else if (i==39) {
-                //         root.selfRegex += "\\\'";
-                //     }
-                //     else if (i==96) {
-                //         root.selfRegex += "\\`";
-                //     }
-                //     else if (i==0) {
-                //         root.selfRegex += "\\0";
-                //     }
-                //     else if (i==1) {
-                //         root.selfRegex += "\\x01";
-                //     }
-                //     else {
-                //         root.selfRegex += (char) i;
-                //     }
-                // }
-                // if (count == 1) {
-                //     String hex = Integer.toHexString(i);
-                //     while (hex.length() < 4) {
-                //         hex = "0" + hex;
-                //     }
-                //     root.selfRegex += "\\u"+hex;
-                // }
                 if (count == 1) {
                     String hex = Integer.toHexString(i);
                     while (hex.length() < 2) {
@@ -2068,10 +2246,17 @@ public class Analyzer {
     private String printPaths (ArrayList<ArrayList<Set<Integer>>> paths, boolean mermaid) {
         String result = "";
 
-        if (paths.size() > 30) result = "paths.size():"+paths.size()+(mermaid ? "\\n" : "\n");
+        if (paths.size() > 30) {
+            result = "paths.size():"+paths.size()+(mermaid ? "\\n" : "\n");
+            for (int i = 0; i < 10; i++) {
+                result += printPath(paths.get(i), mermaid);
+                result += (mermaid ? "\\n" : "\n");
+            }
+            result += "...";
+        }
         else {
             for (ArrayList<Set<Integer>> path : paths) {
-                result += printPath(path);
+                result += printPath(path, mermaid);
                 result += mermaid ? "\\n" : "\n";
             }
         }
@@ -2091,10 +2276,13 @@ public class Analyzer {
      * @param path ArrayList<Set<Integer>>格式的路径
      * @return 形如“[a,b,c],[d]”的字符串，每个set用"[]"包裹，set之间用","分割
      */
-    private String printPath (ArrayList<Set<Integer>> path) {
+    private String printPath (ArrayList<Set<Integer>> path, boolean mermaid) {
         String result = "";
 
         int indexP = 0;
+        if (path.size() == 0) {
+            return "null";
+        }
         for (Set<Integer> s : path) {
             if (indexP != 0) {
                 result += ",";
@@ -2123,15 +2311,7 @@ public class Analyzer {
                     }
                     indexS++;
                     // System.out.print((char) i);
-                    if (i == 10) {
-                        result += "\\'n";
-                    } else if (i == 13) {
-                        result += "\\'r";
-                    } else if (i == 34) {
-                        result += "''";
-                    } else {
-                        result += (char) i;
-                    }
+                    result += int2String(i, mermaid);
                 }
             }
             result += "]";
