@@ -121,6 +121,8 @@ class Tester {
         String result = "";
         Future<attackResult> future = null;
         String base64Regex = "";
+        // log start time
+        long startTime = System.currentTimeMillis();
         try {
             base64Regex = Base64.getEncoder().encodeToString(regex.getBytes("utf-8"));
         } catch (UnsupportedEncodingException e) {
@@ -131,10 +133,12 @@ class Tester {
             //返回值类型为限制的方法的返回值类型
             attackMsg = future.get(1000 * 5, TimeUnit.MILLISECONDS); //任务处理超时时间设为 5 秒
 
-            result += id + "," + base64Regex + "," + attackMsg.attackable + "," + attackMsg.attackMsg + "\n";
+            // result += id + "," + base64Regex + "," + attackMsg.attackable + "," + attackMsg.attackMsg + "\n";
+            result += "success,";
         } catch (TimeoutException ex) {
             future.cancel(true);
-            result += id + "," + base64Regex + "," + "Timeout\n";
+            // result += id + "," + base64Regex + "," + "Timeout\n";
+            result += "timeout,";
         } catch (Exception e) {
             String base64Exception = "";
             try {
@@ -142,11 +146,15 @@ class Tester {
             } catch (UnsupportedEncodingException ee) {
                 e.printStackTrace();
             }
-            result += id + "," + base64Regex + "," + base64Exception + "\n";
+            // result += id + "," + base64Regex + "," + base64Exception + "\n";
+            result += "exception,";
             e.printStackTrace();
         }
+        // log end time
+        long endTime = System.currentTimeMillis();
+        result += (endTime - startTime) + "," + base64Regex + "\n";
 
-        System.out.println(result);
+        // System.out.println(result);
         BufferedWriter writer = null;
         try {
             writer = new BufferedWriter(new FileWriter("result-"+file, true));
