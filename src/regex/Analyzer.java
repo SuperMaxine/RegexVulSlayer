@@ -1569,7 +1569,11 @@ public class Analyzer {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromRight(node)) {
                 // ArrayList<ArrayList<Set<Integer>>> left = ((ConnectNode) father).returnTrueLeftPaths();
-                result = splicePath(((ConnectNode) father).returnTrueLeftPaths(), result);
+                ArrayList<ArrayList<Set<Integer>>> tmp = splicePath(((ConnectNode) father).returnTrueLeftPaths(), result);
+                if (result.size() != 0 && tmp.size() == 0) {
+                    return new ArrayList<>();
+                }
+                result = tmp;
             }
             // else if (father instanceof LoopNode && ((LoopNode) father).cmin == 0) {
             //     result.add(new ArrayList<>());
