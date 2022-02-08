@@ -1346,7 +1346,7 @@ public class Analyzer {
         @Override
         void generateSelfRegex(){
             if (atom != null) {
-                this.SelfRegex += atom.SelfRegex + "{" + cmin + "," + (cmax > 100 ? "100" : cmax) + "}";
+                this.SelfRegex += "(" + atom.SelfRegex + ")" + "{" + cmin + "," + (cmax > 100 ? "100" : cmax) + "}";
             }
         }
 
@@ -1614,7 +1614,7 @@ public class Analyzer {
                         System.out.println("线程请求中断...");
                         return result;
                     }
-                    if (prefixPath.size() + suffixPath.size() < maxLength) {
+                    if (prefixPath.size() + suffixPath.size() <= maxLength) {
                         ArrayList<Set<Integer>> newPath = new ArrayList<>();
                         newPath.addAll(prefixPath);
                         newPath.addAll(suffixPath);
