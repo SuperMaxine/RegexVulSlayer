@@ -1293,6 +1293,7 @@ public class Analyzer {
             for (int i = 0; i < cmin && !Thread.currentThread().isInterrupted(); i++) {
                 ArrayList<ArrayList<Set<Integer>>> newPaths = new ArrayList<>();
                 for (ArrayList<Set<Integer>> atomPath : atomPaths) {
+                    if (atomPath.size() == 0) continue;
                     for (ArrayList<Set<Integer>> lastPath : lastPaths) {
                         if(Thread.currentThread().isInterrupted()){
                             System.out.println("线程请求中断...");
@@ -1315,6 +1316,7 @@ public class Analyzer {
                 this.paths.addAll(lastPaths);
                 ArrayList<ArrayList<Set<Integer>>> newPaths = new ArrayList<>();
                 for (ArrayList<Set<Integer>> atomPath : atomPaths) {
+                    if (atomPath.size() == 0) continue;
                     for (ArrayList<Set<Integer>> lastPath : lastPaths) {
                         if(Thread.currentThread().isInterrupted()){
                             System.out.println("线程请求中断...");
@@ -1666,7 +1668,9 @@ public class Analyzer {
             else if (root.actualNode instanceof Pattern.CharProperty) {
                 root.paths = new ArrayList<>();
                 ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                if (((Pattern.CharProperty) root.actualNode).charSet.size() > 0) {
                     tmpPath.add(((Pattern.CharProperty) root.actualNode).charSet);
+                }
                 root.paths.add(tmpPath);
             }
         }
