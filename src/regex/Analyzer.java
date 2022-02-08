@@ -646,7 +646,7 @@ public class Analyzer {
                 if (path2InPath1) {
                     boolean rawPathHaveNoneSet = false;
                     // charSet1是path1_2 & path2，这一步为在其后添加path1_3
-                    for (int j = path2.size(); j < path1.size() && !Thread.currentThread().isInterrupted(); j++) {
+                    for (int j = i + path2.size(); j < path1.size() && !Thread.currentThread().isInterrupted(); j++) {
                         if (path1.get(j).size()==0) {
                             rawPathHaveNoneSet = true;
                             break;
