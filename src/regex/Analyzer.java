@@ -26,8 +26,8 @@ public class Analyzer {
     private final boolean OneCouting = false;
     // private final boolean POA = true;
     private final boolean POA = false;
-    private final boolean SLQ = true;
-    // private final boolean SLQ = false;
+    // private final boolean SLQ = true;
+    private final boolean SLQ = false;
 
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
@@ -38,11 +38,14 @@ public class Analyzer {
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    private final boolean debugStuck = true;
-    // private final boolean debugStuck = false;
+    // private final boolean debugStuck = true;
+    private final boolean debugStuck = false;
 
-    private final boolean realTest = true;
-    // private final boolean realTest = false;
+    private final boolean debugFirstAndLast = true;
+    // private final boolean debugFirstAndLast = false;
+
+    // private final boolean realTest = true;
+    private final boolean realTest = false;
 
     String regex;
     int maxLength;
@@ -968,11 +971,16 @@ public class Analyzer {
         int id;
         String SelfRegex = "";
         boolean pathGenerated = false;
+        Set<Integer> first;
+        Set<Integer> last;
+        boolean couldBeEmpty = false;
 
         LeafNode (Set<Integer> groupNums, Pattern.Node actualNode) {
             this.groupNums = new HashSet<Integer>(groupNums);
             this.paths = new ArrayList<>();
             this.actualNode = actualNode;
+            this.first = new HashSet<>();
+            this.last = new HashSet<>();
         }
 
         LeafNode copy(LeafNode father) {
@@ -992,6 +1000,8 @@ public class Analyzer {
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
+                    + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +printPaths(paths, true)+"\"]");
         }
 
@@ -1068,6 +1078,22 @@ public class Analyzer {
                 this.pathGenerated = true;
             }
         }
+
+        public void generateFistAndLast(){
+            if (this.paths.size() == 0) {
+                this.couldBeEmpty = true;
+                return;
+            }
+            if (this.actualNode instanceof Pattern.CharProperty){
+                this.first = ((Pattern.CharProperty) this.actualNode).charSet;
+                this.last = ((Pattern.CharProperty) this.actualNode).charSet;
+            }
+            else if (this.actualNode instanceof Pattern.SliceNode || this.actualNode instanceof Pattern.BnM){
+                this.first.addAll(this.paths.get(0).get(0));
+                this.last.addAll(this.paths.get(0).get(this.paths.get(0).size() - 1));
+            }
+        }
+
     }
 
     private String int2String(int i) {
@@ -1214,6 +1240,29 @@ public class Analyzer {
         }
 
         @Override
+        public void generateFistAndLast(){
+            boolean leftCouldBeEmpty = left == null || left instanceof LookaroundNode || left.couldBeEmpty;
+            boolean rightCouldBeEmpty = right == null || right instanceof LookaroundNode || right.couldBeEmpty;
+
+            if (left != null) {
+                this.first.addAll(left.first);
+            }
+            if (right != null) {
+                this.last.addAll(right.last);
+            }
+
+            if (leftCouldBeEmpty && rightCouldBeEmpty) {
+                this.couldBeEmpty = true;
+            }
+            else if (leftCouldBeEmpty && right != null) {
+                this.first.addAll(right.first);
+            }
+            else if (rightCouldBeEmpty && left != null) {
+                this.last.addAll(left.last);
+            }
+        }
+
+        @Override
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             if (left == oldNode) {
                 left = newNode;
@@ -1269,6 +1318,8 @@ public class Analyzer {
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
+                    + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1335,6 +1386,24 @@ public class Analyzer {
             this.SelfRegex += ")";
         }
 
+
+        @Override
+        public void generateFistAndLast(){
+            boolean allChildrenCouldBeEmpty = true;
+            for (LeafNode child : children) {
+                if(Thread.currentThread().isInterrupted()){
+                    System.out.println("线程请求中断...");
+                    return;
+                }
+                if (child != null && !(child instanceof LookaroundNode)) {
+                    if (child.couldBeEmpty) allChildrenCouldBeEmpty = false;
+                    this.first.addAll(child.first);
+                    this.last.addAll(child.last);
+                }
+            }
+            if (allChildrenCouldBeEmpty) this.couldBeEmpty = true;
+        }
+
         @Override
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             for (int i = 0; i < children.size(); i++) {
@@ -1366,6 +1435,8 @@ public class Analyzer {
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
+                    + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1461,6 +1532,19 @@ public class Analyzer {
             }
         }
 
+
+        @Override
+        public void generateFistAndLast(){
+            if (atom != null && !(atom instanceof LookaroundNode)) {
+                if (atom.couldBeEmpty) this.couldBeEmpty = true;
+                this.first = atom.first;
+                this.last = atom.last;
+            }
+            if (cmin == 0) {
+                this.couldBeEmpty = true;
+            }
+        }
+
         @Override
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             this.atom = newNode;
@@ -1483,6 +1567,8 @@ public class Analyzer {
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + "cmin = " + cmin + "\\ncmax = " + cmax + "\\n"
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
+                    + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1532,6 +1618,16 @@ public class Analyzer {
             }
         }
 
+
+        @Override
+        public void generateFistAndLast(){
+            if (atom != null) {
+                if (atom.couldBeEmpty) this.couldBeEmpty = true;
+                this.first = atom.first;
+                this.last = atom.last;
+            }
+        }
+
         @Override
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             this.atom = newNode;
@@ -1554,6 +1650,8 @@ public class Analyzer {
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + "type = " + type.toString() + "\\n"
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
+                    + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +(debug ? printPaths(paths, true) : "")+"\"]");
         }
     }
@@ -1794,6 +1892,7 @@ public class Analyzer {
             }
 
             root.generateSelfRegex();
+            root.generateFistAndLast();
         }
     }
 
@@ -2495,17 +2594,23 @@ public class Analyzer {
                 result += "size(" + s.size() + ")";
             }
             else {
-                int indexS = 0;
-                for (int i : s) {
-                    if (indexS != 0) {
-                        result += ",";
-                    }
-                    indexS++;
-                    // System.out.print((char) i);
-                    result += int2String(i, mermaid);
-                }
+                result += printSet(s, mermaid);
             }
             result += "]";
+        }
+        return result;
+    }
+
+    public String printSet(Set<Integer> s, boolean mermaid) {
+        String result = "";
+        int indexS = 0;
+        for (int i : s) {
+            if (indexS != 0) {
+                result += ",";
+            }
+            indexS++;
+            // System.out.print((char) i);
+            result += int2String(i, mermaid);
         }
         return result;
     }
