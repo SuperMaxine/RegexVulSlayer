@@ -24,22 +24,22 @@ public class Analyzer {
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
-    // private final boolean POA = true;
-    private final boolean POA = false;
-    private final boolean SLQ = true;
-    // private final boolean SLQ = false;
+    private final boolean POA = true;
+    // private final boolean POA = false;
+    // private final boolean SLQ = true;
+    private final boolean SLQ = false;
 
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
 
-    private final boolean debugStep = true;
-    // private final boolean debugStep = false;
+    // private final boolean debugStep = true;
+    private final boolean debugStep = false;
 
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    private final boolean debugStuck = true;
-    // private final boolean debugStuck = false;
+    // private final boolean debugStuck = true;
+    private final boolean debugStuck = false;
 
     private final boolean realTest = true;
     // private final boolean realTest = false;
@@ -120,7 +120,7 @@ public class Analyzer {
         // printTree(root, true);
         // 记录结束时间
         endTime = System.currentTimeMillis();
-        System.out.println("id:"+id+",generateAllPath cost time: " + (endTime - startTime) + "ms");
+        System.out.println("id:"+id+",scanAllPath cost time: " + (endTime - startTime) + "ms");
 
 
         if(Thread.currentThread().isInterrupted()){
@@ -236,6 +236,7 @@ public class Analyzer {
                         if (debugStuck) System.out.println("node1: " + countingNodes.get(i).id + " node2: " + countingNodes.get(j).id);
                         // 找到两者的公共父节点，然后求出两者之间夹着的路径
                         Pair<ArrayList<ArrayList<Set<Integer>>>, LeafNode> midPathsAndFrontNode = getMidAndFrontNode(countingNodes.get(i), countingNodes.get(j));
+                        if (midPathsAndFrontNode == null) continue;
 
                         // LeafNode node1 = countingNodes.get(i);
                         // LeafNode node2 = countingNodes.get(j);
@@ -573,6 +574,12 @@ public class Analyzer {
         }
     }
 
+    /**
+     * 判断两个Node谁前谁后，并且返回中间路径
+     * @param node1
+     * @param node2
+     * @return 如果能分出前后（最小父节点是ConnectNode），返回中间路径和前节点；如果是Branch，返回null，表示跳过不测
+     */
     Pair<ArrayList<ArrayList<Set<Integer>>>, LeafNode> getMidAndFrontNode(LeafNode node1, LeafNode node2) {
         Pair<ArrayList<ArrayList<Set<Integer>>>, ArrayList<ArrayList<Set<Integer>>>> result;
         ArrayList<ArrayList<Set<Integer>>> midPaths = new ArrayList<>();
@@ -632,7 +639,10 @@ public class Analyzer {
         }
         else if (father instanceof BranchNode) {
             // 如果最小公共父节点是分支的话，说明之间不夹着东西，视作相邻，前缀都一样，随便返回一个即可
-            return new Pair<>(midPaths, node1);
+            // return new Pair<>(midPaths, node1);
+
+            // 如果最小公公节点时分支的话，不可能构成poa，跳过
+            return null;
         }
         else {
             throw new Error("father is not ConnectNode or BranchNode");
