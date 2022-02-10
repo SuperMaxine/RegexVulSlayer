@@ -690,16 +690,20 @@ public class Analyzer {
     }
 
     private boolean neverhaveEmptySuffix(LeafNode node) {
+        boolean result = false;
         while (node != this.root && !Thread.currentThread().isInterrupted()) {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromLeft(node)) {
                 ArrayList<ArrayList<Set<Integer>>> suffixPaths = ((ConnectNode) father).returnTrueRightPaths();
-                if (suffixPaths.size() != 0 && suffixPaths.get(0).size() != 0 ) return true;
-                if (((ConnectNode) father).endInRight()) return true;
+                if (suffixPaths.size() != 0 && suffixPaths.get(0).size() != 0 ) result = true;
+                if (((ConnectNode) father).endInRight()) result = true;
+            }
+            else if (father instanceof LoopNode && ((LoopNode) father).cmin == 0) {
+                result = false;
             }
             node = father;
         }
-        return false;
+        return result;
     }
 
     enum VulType {
