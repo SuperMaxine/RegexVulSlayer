@@ -24,10 +24,10 @@ public class Analyzer {
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
-    private final boolean POA = true;
-    // private final boolean POA = false;
-    // private final boolean SLQ = true;
-    private final boolean SLQ = false;
+    // private final boolean POA = true;
+    private final boolean POA = false;
+    private final boolean SLQ = true;
+    // private final boolean SLQ = false;
 
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
@@ -38,8 +38,8 @@ public class Analyzer {
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    // private final boolean debugStuck = true;
-    private final boolean debugStuck = false;
+    private final boolean debugStuck = true;
+    // private final boolean debugStuck = false;
 
     private final boolean realTest = true;
     // private final boolean realTest = false;
@@ -116,8 +116,8 @@ public class Analyzer {
         // 对新树生成所有路径
         // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
         scanAllPath(root, false);
-        // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
-        // printTree(root, true);
+        System.out.println("\n\n-----------------------\n\n\nflowchart TD");
+        printTree(root, true);
         // 记录结束时间
         endTime = System.currentTimeMillis();
         System.out.println("id:"+id+",scanAllPath cost time: " + (endTime - startTime) + "ms");
@@ -1004,7 +1004,7 @@ public class Analyzer {
                     this.SelfRegex += "[";
                     if (setsEquals(cp.charSet, Dot)) this.SelfRegex += ".";
                     else if (setsEquals(cp.charSet, Bound)) this.SelfRegex += "\\b";
-                    else if (setsEquals(cp.charSet, Space)) this.SelfRegex += "\\s";
+                    else if (setsEquals(cp.charSet, SpaceFull)) this.SelfRegex += "\\s";
                     else if (setsEquals(cp.charSet, noneSpace)) this.SelfRegex += "\\S";
                     else if (setsEquals(cp.charSet, All)) this.SelfRegex += "\\s\\S";
                     else if (setsEquals(cp.charSet, word)) this.SelfRegex += "\\w";
@@ -2155,7 +2155,14 @@ public class Analyzer {
             String hex = Integer.toHexString(255);
             root.selfRegex += "-" + "\\x"+hex;
         }
-        root.charSet.addAll(charSet);
+
+        if (setsEquals(charSet, Space)){
+            root.charSet.addAll(SpaceFull);
+        }
+        else {
+            root.charSet.addAll(charSet);
+        }
+
         if (charSet.size() < 128) {
             fullSmallCharSet.addAll(charSet);
         } else {
@@ -2437,6 +2444,20 @@ public class Analyzer {
     Set<Integer> Dot = getNodeCharSet(DotP.root.next);
     Set<Integer> Bound = getNodeCharSet(BoundP.root.next);
     Set<Integer> Space = getNodeCharSet(SpaceP.root.next);
+    Set<Integer> SpaceFull = new HashSet<Integer>(){{
+        addAll(Space);
+        add(0x00a0);
+        add(0x1680);
+        for (int i = 0x2000; i <= 0x200a; i++) {
+            add(i);
+        }
+        add(0x2028);
+        add(0x2029);
+        add(0x202f);
+        add(0x205f);
+        add(0x3000);
+        add(0xfeff);
+    }};
     Set<Integer> noneSpace = getNodeCharSet(noneSpaceP.root.next);
     Set<Integer> word = getNodeCharSet(wordP.root.next);
     Set<Integer> All = getNodeCharSet(AllP.root.next);
@@ -2462,7 +2483,7 @@ public class Analyzer {
                 result += ".";
             } else if (setsEquals(s, Bound)) {
                 result += "\\b";
-            } else if (setsEquals(s, Space)) {
+            } else if (setsEquals(s, SpaceFull)) {
                 result += "\\s";
             } else if (setsEquals(s, noneSpace)) {
                 result += "\\S";
