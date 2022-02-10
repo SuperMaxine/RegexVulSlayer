@@ -1,0 +1,27 @@
+[^{}\s](?:[^{};\"']|(\"|')(?:\\(?:\r\n|[\s\S])|(?!\1)[^\\\r\n])*\1)*?(?=\s*\{)
+@[\w-]+[\s\S]*?(?:;|(?=\s*\{))
+(\bselector\s*\((?!\s*\))\s*)(?:[^()]|\((?:[^()]|\([^()]*\))*\))+?(?=\s*\))
+(<style[\s\S]*?>)(?:<!\[CDATA\[(?:[^\]]|\](?!\]>))*\]\]>|(?!<!\[CDATA\[)[\s\S])*?(?=<\/style>)
+#?[_$a-zA-Z\xA0-\uFFFF][$\w\xA0-\uFFFF]*(?=\s*(?:\.\s*(?:apply|bind|call)\s*)?\()
+#?[_$a-zA-Z\xA0-\uFFFF][$\w\xA0-\uFFFF]*(?=\s*[=:]\s*(?:async\s*)?(?:\bfunction\b|(?:\((?:[^()]|\([^()]*\))*\)|[_$a-zA-Z\xA0-\uFFFF][$\w\xA0-\uFFFF]*)\s*=>))
+(function(?:\s+[_$A-Za-z\xA0-\uFFFF][$\w\xA0-\uFFFF]*)?\s*\(\s*)(?!\s)(?:[^()]|\([^()]*\))+?(?=\s*\))
+[_$a-z\xA0-\uFFFF][$\w\xA0-\uFFFF]*(?=\s*=>)
+(\(\s*)(?!\s)(?:[^()]|\([^()]*\))+?(?=\s*\)\s*=>)
+((?:\b|\s|^)(?!(?:as|async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|finally|for|from|function|get|if|implements|import|in|instanceof|interface|let|new|null|of|package|private|protected|public|return|set|static|super|switch|this|throw|try|typeof|undefined|var|void|while|with|yield)(?![$\w\xA0-\uFFFF]))(?:[_$A-Za-z\xA0-\uFFFF][$\w\xA0-\uFFFF]*\s*)\(\s*|\]\s*\(\s*)(?!\s)(?:[^()]|\([^()]*\))+?(?=\s*\)\s*\{)
+(?:[+*?]|\{(?:\d+,?\d*)\})[?+]?
+(<script[\s\S]*?>)(?:<!\[CDATA\[(?:[^\]]|\](?!\]>))*\]\]>|(?!<!\[CDATA\[)[\s\S])*?(?=<\/script>)
+(^[ \t]*)[^:\r\n]+?(?=:)
+\b(?:0x[\da-f]+|(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)(?:F|U(?:LL?)?|LL?)?\b
+(->\s*)(?:\s*(?:,\s*)?\b[a-z]\w*(?:\s*\([^()\r\n]*\))?)+(?=\s*;)
+<\/?\b(?:Auth[nz]ProviderAlias|Directory|DirectoryMatch|Else|ElseIf|Files|FilesMatch|If|IfDefine|IfModule|IfVersion|Limit|LimitExcept|Location|LocationMatch|Macro|Proxy|Require(?:All|Any|None)|VirtualHost)\b *.*>
+(?:\b\d+\.?\d*|\B\.\d+)(?:e-?\d+)?\b
+(\b(?:class|struct)\s+\w+\s*:\s*)(?:[^;{}\"'])+?(?=\s*[;{])
+\b[a-z\d][a-z\d-]*::?(?:(?:\S+)??\[(?:[^\]\\\"]|([\"'])(?:(?!\1)[^\\]|\\.)*\1|\\.)*\])
+(\b(?:default|typeof|sizeof)\s*\(\s*)(?:[^()\s]|\s(?!\s*\))|(?:\((?:[^()]|(?:\((?:[^()]|(?:\((?:[^()]|(?:\((?:[^()]|[^\s\S])*\)))*\)))*\)))*\)))*(?=\s*\))
+(<script(?=.*runat=['\"]?server['\"]?)[\s\S]*?>)[\s\S]*?(?=<\/script>)
+(^\s*)#(?:comments-start|cs)[\s\S]*?^\s*#(?:comments-end|ce)
+\b0b[01][01_]*L?\b|\b0x[\da-f_]*\.?[\da-f_p+-]+\b|(?:\b\d[\d_]*\.?[\d_]*|\B\.\d[\d_]*)(?:e[+-]?\d[\d_]*)?[dfls]?
+^(\s*)[-*\w\xA0-\uFFFF]*\|(?!=)
+(=\s*)[-\w\xA0-\uFFFF]+(?=\s*$)
+^\d+.*$
+\b0x[a-f\d]+\.?[a-f\d]*(?:p[+-]?\d+)?\b|\b\d+(?:\.\B|\.?\d*(?:e[+-]?\d+)?\b)|\B\.\d+(?:e[+-]?\d+)?\b

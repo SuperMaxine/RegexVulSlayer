@@ -32,8 +32,8 @@ public class Analyzer {
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
 
-    // private final boolean debugStep = true;
-    private final boolean debugStep = false;
+    private final boolean debugStep = true;
+    // private final boolean debugStep = false;
 
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
@@ -48,8 +48,8 @@ public class Analyzer {
     int maxLength;
     private Set<Integer> fullSmallCharSet;
     private Map<Pattern.Node, Set<Integer>> bigCharSetMap;
-    private final Pattern4Search testPattern;
-    private final redosPattern testPattern4Search;
+    private Pattern4Search testPattern = null;
+    private redosPattern testPattern4Search = null;
     public boolean attackable = false;
     public String attackMsg = "";
 
@@ -73,8 +73,9 @@ public class Analyzer {
         this.maxLength = maxLength;
         fullSmallCharSet = new HashSet<>();
         bigCharSetMap = new HashMap<>();
-        testPattern = Pattern4Search.compile(regex);
-        testPattern4Search = redosPattern.compile(regex);
+        if (SLQ) testPattern4Search = redosPattern.compile(regex);
+        else testPattern = Pattern4Search.compile(regex);
+
 
         groupIndex2LocalIndex = new HashMap<>();
         groupStartNodesMap = new HashMap<>();
@@ -109,14 +110,17 @@ public class Analyzer {
             System.out.println("线程请求中断...");
             return;
         }
-        // 对新树生成所有路径
-        // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
-        generateAllPath(root, false);
-        System.out.println("\n\n-----------------------\n\n\nflowchart TD");
-        printTree(root, true);
-        // 记录结束时间
         long endTime = System.currentTimeMillis();
         System.out.println("id:"+id+",Build tree cost time: " + (endTime - startTime) + "ms");
+        startTime = endTime;
+        // 对新树生成所有路径
+        // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
+        scanAllPath(root, false);
+        // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
+        // printTree(root, true);
+        // 记录结束时间
+        endTime = System.currentTimeMillis();
+        System.out.println("id:"+id+",generateAllPath cost time: " + (endTime - startTime) + "ms");
 
 
         if(Thread.currentThread().isInterrupted()){
@@ -137,39 +141,39 @@ public class Analyzer {
         // --------------------生成树阶段结束，对漏洞进行攻击阶段开始-----------------------------
 
         // 生成前缀路径
-        for (LeafNode node : countingNodes) {
-            if(Thread.currentThread().isInterrupted()){
-                System.out.println("线程请求中断...");
-                if (debugPath) {
-                    try {
-                        attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString("generate all pre path time out".getBytes("utf-8"));
-                        BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
-                        writer.write(id + "," + attackMsg + "\n");
-                        writer.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-                return;
-            }
-            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
-            String preRegex = generatePreRegex(node);
-            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
-                @Override
-                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                    return o1.size() - o2.size();
-                }
-            });
-            countingPrePaths.put(node, prePaths);
-            countingPreRegex.put(node, preRegex);
-            // System.out.println("id: " + node.id + " preRegex: " + preRegex);
-            // System.out.println("\n" + node.toString());
-            // System.out.println(printPaths(prePaths, false));
-            // Enumerator pre = new Enumerator(prePaths.get(0));
-            // while(pre.hasNext()) {
-            //     System.out.println(pre.next());
-            // }
-        }
+        // for (LeafNode node : countingNodes) {
+        //     if(Thread.currentThread().isInterrupted()){
+        //         System.out.println("线程请求中断...");
+        //         if (debugPath) {
+        //             try {
+        //                 attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString("generate all pre path time out".getBytes("utf-8"));
+        //                 BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+        //                 writer.write(id + "," + attackMsg + "\n");
+        //                 writer.close();
+        //             } catch (IOException e) {
+        //                 e.printStackTrace();
+        //             }
+        //         }
+        //         return;
+        //     }
+        //     String preRegex = generatePreRegex(node);
+        //     ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+        //     Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+        //         @Override
+        //         public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+        //             return o1.size() - o2.size();
+        //         }
+        //     });
+        //     countingPrePaths.put(node, prePaths);
+        //     countingPreRegex.put(node, preRegex);
+        //     // System.out.println("id: " + node.id + " preRegex: " + preRegex);
+        //     // System.out.println("\n" + node.toString());
+        //     // System.out.println(printPaths(prePaths, false));
+        //     // Enumerator pre = new Enumerator(prePaths.get(0));
+        //     // while(pre.hasNext()) {
+        //     //     System.out.println(pre.next());
+        //     // }
+        // }
 
 
         if(Thread.currentThread().isInterrupted()){
@@ -189,10 +193,20 @@ public class Analyzer {
 
         if (OneCouting) {
             for (LeafNode node : countingNodes) {
-                for (int i = 0 ; i < node.paths.size() && !Thread.currentThread().isInterrupted(); i++) {
-                    for (int j = i + 1; j < node.paths.size() && !Thread.currentThread().isInterrupted(); j++) {
-                        ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.paths.get(i), node.paths.get(j));
+                for (int i = 0 ; i < node.getPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
+                    for (int j = i + 1; j < node.getPaths().size() && !Thread.currentThread().isInterrupted(); j++) {
+                        ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.getPaths().get(i), node.getPaths().get(j));
                         if(pumpPath.size() != 0) {
+                            if (countingPrePaths.get(node) == null) {
+                                ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+                                Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                    @Override
+                                    public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                        return o1.size() - o2.size();
+                                    }
+                                });
+                                countingPrePaths.put(node, prePaths);
+                            }
                             for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
                                 if(Thread.currentThread().isInterrupted()){
                                     System.out.println("线程请求中断...");
@@ -229,9 +243,9 @@ public class Analyzer {
 
                         if (midPathsAndFrontNode.getKey().size() == 0) {
                             // 说明两者直接相邻
-                            if (debugPath) attackMsg += "POA-Direct Adjacent:\nnode1 paths\n" + printPaths(countingNodes.get(i).paths, false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).paths, false) + "\n\n";
-                            for (ArrayList<Set<Integer>> path1 : countingNodes.get(i).paths) {
-                                for (ArrayList<Set<Integer>> path2 : countingNodes.get(j).paths) {
+                            if (debugPath) attackMsg += "POA-Direct Adjacent:\nnode1 paths\n" + printPaths(countingNodes.get(i).getPaths(), false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).getPaths(), false) + "\n\n";
+                            for (ArrayList<Set<Integer>> path1 : countingNodes.get(i).getPaths()) {
+                                for (ArrayList<Set<Integer>> path2 : countingNodes.get(j).getPaths()) {
                                     if(Thread.currentThread().isInterrupted()){
                                         System.out.println("线程请求中断...");
                                         if (debugPath) {
@@ -255,6 +269,16 @@ public class Analyzer {
                                     if (pumpPath.size() != 0) {
                                         if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
                                         if (realTest) {
+                                            if (countingPrePaths.get(midPathsAndFrontNode.getValue()) == null) {
+                                                ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
+                                                Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                                    @Override
+                                                    public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                                        return o1.size() - o2.size();
+                                                    }
+                                                });
+                                                countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
+                                            }
                                             for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
                                                 if (Thread.currentThread().isInterrupted()) {
                                                     System.out.println("线程请求中断...");
@@ -271,16 +295,26 @@ public class Analyzer {
                         }
                         else {
                             // 说明两者之间夹着内容，\w+0\d+
+                            if (countingPrePaths.get(midPathsAndFrontNode.getValue()) == null) {
+                                ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
+                                Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                    @Override
+                                    public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                        return o1.size() - o2.size();
+                                    }
+                                });
+                                countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
+                            }
                             ArrayList<ArrayList<Set<Integer>>> prePaths = countingPrePaths.get(midPathsAndFrontNode.getValue());
                             ArrayList<Set<Integer>> pumpPath;
                             LeafNode frontNode = midPathsAndFrontNode.getValue();
                             LeafNode backNode = countingNodes.get(i) == midPathsAndFrontNode.getValue() ? countingNodes.get(j) : countingNodes.get(i);
 
-                            if (debugPath) attackMsg += "POA-Nested:\nnode1 paths\n" + printPaths(countingNodes.get(i).paths, false) + "\nmidPaths:\n" + printPaths(midPathsAndFrontNode.getKey(), false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).paths, false)  + "\n";
+                            if (debugPath) attackMsg += "POA-Nested:\nnode1 paths\n" + printPaths(countingNodes.get(i).getPaths(), false) + "\nmidPaths:\n" + printPaths(midPathsAndFrontNode.getKey(), false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).getPaths(), false)  + "\n";
 
                             // \w+0 vs \d+
-                            for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.paths, midPathsAndFrontNode.getKey())) {
-                                for (ArrayList<Set<Integer>> path2 : backNode.paths) {
+                            for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.getPaths(), midPathsAndFrontNode.getKey())) {
+                                for (ArrayList<Set<Integer>> path2 : backNode.getPaths()) {
                                     if(Thread.currentThread().isInterrupted()){
                                         System.out.println("线程请求中断...");
                                         if (debugPath) {
@@ -319,8 +353,8 @@ public class Analyzer {
                             }
 
                             // \w+ vs 0\d+
-                            for (ArrayList<Set<Integer>> path1 : splicePath(midPathsAndFrontNode.getKey(), backNode.paths)) {
-                                for (ArrayList<Set<Integer>> path2 : frontNode.paths) {
+                            for (ArrayList<Set<Integer>> path1 : splicePath(midPathsAndFrontNode.getKey(), backNode.getPaths())) {
+                                for (ArrayList<Set<Integer>> path2 : frontNode.getPaths()) {
                                     if(Thread.currentThread().isInterrupted()){
                                         System.out.println("线程请求中断...");
                                         if (debugPath) {
@@ -409,12 +443,22 @@ public class Analyzer {
                 // 如果cmax小于100或后缀可空，则不需要检查
                 if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) continue;
                 // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
-                if (debugPath) attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.paths, false) +"\n";
+                if (debugPath) attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.getPaths(), false) +"\n";
                 if (haveEmptyBeginning(node)) {
-                    if (debugPath) attackMsg += "SLQ1:\npump paths\n" + printPaths(node.paths, false) + "\n";
+                    if (debugPath) attackMsg += "SLQ1:\npump paths\n" + printPaths(node.getPaths(), false) + "\n";
                     if (realTest) {
+                        if (countingPrePaths.get(node) == null) {
+                            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+                            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                @Override
+                                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                    return o1.size() - o2.size();
+                                }
+                            });
+                            countingPrePaths.put(node, prePaths);
+                        }
                         if (countingPrePaths.get(node).size() == 0) {
-                            for (ArrayList<Set<Integer>> pumpPath : node.paths) {
+                            for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
                                 if (Thread.currentThread().isInterrupted()) {
                                     System.out.println("线程请求中断...");
                                     return;
@@ -430,7 +474,7 @@ public class Analyzer {
                                     return;
                                 }
                                 preEnum = new Enumerator(prePath);
-                                for (ArrayList<Set<Integer>> pumpPath : node.paths) {
+                                for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
                                     if (Thread.currentThread().isInterrupted()) {
                                         System.out.println("线程请求中断...");
                                         return;
@@ -443,8 +487,18 @@ public class Analyzer {
                     }
                 }
                 else {
+                    if (countingPrePaths.get(node) == null) {
+                        ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+                        Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                            @Override
+                            public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                return o1.size() - o2.size();
+                            }
+                        });
+                        countingPrePaths.put(node, prePaths);
+                    }
                     // SLQ2：counting开头不可空，判断前缀是否是中缀的子串，如果有重叠，测试""+(中缀&前缀）*n+"\b\n\b"
-                    for (ArrayList<Set<Integer>> pumpPath : node.paths) {
+                    for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
                             if(Thread.currentThread().isInterrupted()){
                                 System.out.println("线程请求中断...");
@@ -732,11 +786,11 @@ public class Analyzer {
             while (pumpEnum.hasNext() && !Thread.currentThread().isInterrupted()) {
                 String pump = pumpEnum.next();
                 double matchingStepCnt;
-                if (debugStep) System.out.println("pump: " + pump);
-                if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
+                if (debugStep) System.out.println("pump:" + pump);
+                if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 1000000);
                 else matchingStepCnt = testPattern.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
                 if (debugStep) System.out.println(matchingStepCnt);
-                if (matchingStepCnt > 1e5) {
+                if (matchingStepCnt > (SLQ?1e6:1e5)) {
                     attackMsg = "";
                     try {
                         // type
@@ -769,10 +823,10 @@ public class Analyzer {
                     String pump = pumpEnum.next();
                     double matchingStepCnt;
                     if (debugStep) System.out.println("pre:" + pre + "\npump:" + pump);
-                    if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
+                    if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 1000000);
                     else matchingStepCnt = testPattern.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
                     if (debugStep) System.out.println(matchingStepCnt);
-                    if (matchingStepCnt > 1e5) {
+                    if (matchingStepCnt > (SLQ?1e6:1e5)) {
                         attackMsg = "";
                         try {
                             // type
@@ -903,6 +957,7 @@ public class Analyzer {
         boolean endInPath = false;
         int id;
         String SelfRegex = "";
+        boolean pathGenerated = false;
 
         LeafNode (Set<Integer> groupNums, Pattern.Node actualNode) {
             this.groupNums = new HashSet<Integer>(groupNums);
@@ -912,8 +967,12 @@ public class Analyzer {
 
         LeafNode copy(LeafNode father) {
             LeafNode result = new LeafNode(new HashSet<>(), actualNode);
-            result.paths = new ArrayList<>(this.paths);
+            // result.paths = new ArrayList<>(this.paths);
             result.father = father;
+            if (this.pathGenerated) {
+                result.paths = new ArrayList<>(this.paths);
+                result.pathGenerated = true;
+            }
             return result;
         }
 
@@ -959,6 +1018,46 @@ public class Analyzer {
                 }
             }
         }
+
+        ArrayList<ArrayList<Set<Integer>>> getPaths() {
+            if (!this.pathGenerated) {
+                generateAllPath(this);
+                this.pathGenerated = true;
+            }
+            return this.paths;
+        }
+
+        public void generatePaths() {
+            if (pathGenerated) return;
+            if (this.actualNode instanceof Pattern.CharProperty){
+                ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                if (((Pattern.CharProperty) this.actualNode).charSet.size() > 0) {
+                    tmpPath.add(((Pattern.CharProperty) this.actualNode).charSet);
+                }
+                this.paths.add(tmpPath);
+                this.pathGenerated = true;
+            }
+            else if (this.actualNode instanceof Pattern.SliceNode){
+                ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                for (int i : ((Pattern.SliceNode) this.actualNode).buffer) {
+                    Set<Integer> tmpCharSet = new HashSet<>();
+                    tmpCharSet.add(i);
+                    tmpPath.add(tmpCharSet);
+                }
+                this.paths.add(tmpPath);
+                this.pathGenerated = true;
+            }
+            else if (this.actualNode instanceof Pattern.BnM) {
+                ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                for (int i : ((Pattern.BnM) this.actualNode).buffer) {
+                    Set<Integer> tmpCharSet = new HashSet<>();
+                    tmpCharSet.add(i);
+                    tmpPath.add(tmpCharSet);
+                }
+                this.paths.add(tmpPath);
+                this.pathGenerated = true;
+            }
+        }
     }
 
     private String int2String(int i) {
@@ -975,7 +1074,7 @@ public class Analyzer {
             case 9:
                 return "\\t";
             case 10:
-                return "\\n";
+                return mermaid ? "\\ n" : "\\n";
             case 11:
                 return "\\v";
             case 12:
@@ -1037,28 +1136,26 @@ public class Analyzer {
         /**
          * 根据左右子树路径生成本节点的路径
          */
-        void generatePaths() {
-            assignId2Node(this);
+        @Override
+        public void generatePaths() {
+            if (pathGenerated) return;
+            // assignId2Node(this);
             leftPaths = new ArrayList<>();
             rightPaths = new ArrayList<>();
 
             if (left != null) {
                 if (!(left instanceof LookaroundNode)) {
-                    leftPaths.addAll(left.paths);
+                    leftPaths.addAll(left.getPaths());
                     if (left.beginInPath) this.beginInPath = true;
                     if (left.endInPath) this.endInPath = true;
                 }
-                id2childNodes.get(this.id).add(left.id);
-                id2childNodes.get(this.id).addAll(id2childNodes.get(left.id));
             }
             if (right != null) {
                 if (!(right instanceof LookaroundNode)) {
-                    rightPaths.addAll(right.paths);
+                    rightPaths.addAll(right.getPaths());
                     if (right.beginInPath) this.beginInPath = true;
                     if (right.endInPath) this.endInPath = true;
                 }
-                id2childNodes.get(this.id).add(right.id);
-                id2childNodes.get(this.id).addAll(id2childNodes.get(right.id));
             }
 
             if (leftPaths.size() == 0) {
@@ -1128,13 +1225,13 @@ public class Analyzer {
 
         ArrayList<ArrayList<Set<Integer>>> returnTrueLeftPaths() {
             ArrayList<ArrayList<Set<Integer>>> result = new ArrayList<>();
-            if (left != null && !(left instanceof LookaroundNode)) result.addAll(left.paths);
+            if (left != null && !(left instanceof LookaroundNode)) result.addAll(left.getPaths());
             return result;
         }
 
         ArrayList<ArrayList<Set<Integer>>> returnTrueRightPaths() {
             ArrayList<ArrayList<Set<Integer>>> result = new ArrayList<>();
-            if (right != null && !(right instanceof LookaroundNode)) result.addAll(right.paths);
+            if (right != null && !(right instanceof LookaroundNode)) result.addAll(right.getPaths());
             return result;
         }
 
@@ -1184,8 +1281,10 @@ public class Analyzer {
             }
         }
 
-        void generatePaths() {
-            assignId2Node(this);
+        @Override
+        public void generatePaths() {
+            if (pathGenerated) return;
+            // assignId2Node(this);
             this.beginInPath = true;
             this.endInPath = true;
             for (LeafNode child : children) {
@@ -1193,14 +1292,12 @@ public class Analyzer {
                     System.out.println("线程请求中断...");
                     return;
                 }
-                childrenPaths.put(child, new ArrayList<>(child.paths));
+                childrenPaths.put(child, new ArrayList<>(child.getPaths()));
                 if (!(child instanceof LookaroundNode)) {
-                    this.paths.addAll(child.paths);
+                    this.paths.addAll(child.getPaths());
                     if (!child.beginInPath) this.beginInPath = false;
                     if (!child.endInPath) this.endInPath = false;
                 }
-                id2childNodes.get(this.id).add(child.id);
-                id2childNodes.get(this.id).addAll(id2childNodes.get(child.id));
             }
             Collections.sort((this.paths), new Comparator<ArrayList<Set<Integer>>>() {
                 @Override
@@ -1278,17 +1375,17 @@ public class Analyzer {
             if (atom != null) atom.father = this;
         }
 
-        void generatePaths() {
-            assignId2Node(this);
+        @Override
+        public void generatePaths() {
+            if (pathGenerated) return;
+            // assignId2Node(this);
             this.atomPaths = new ArrayList<>();
             if (atom != null) {
                 if (!(atom instanceof LookaroundNode)) {
-                    this.atomPaths.addAll(atom.paths);
+                    this.atomPaths.addAll(atom.getPaths());
                     if (cmin != 0) this.beginInPath = atom.beginInPath;
                     if (cmin != 0) this.endInPath = atom.endInPath;
                 }
-                id2childNodes.get(this.id).add(atom.id);
-                id2childNodes.get(this.id).addAll(id2childNodes.get(atom.id));
             }
 
             ArrayList<ArrayList<Set<Integer>>> lastPaths = new ArrayList<>();
@@ -1358,7 +1455,7 @@ public class Analyzer {
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             this.atom = newNode;
             if (newNode != null) newNode.father = this;
-            this.atomPaths = new ArrayList<>(newNode.paths);
+            // this.atomPaths = new ArrayList<>(newNode.paths);
         }
 
         @Override
@@ -1396,13 +1493,13 @@ public class Analyzer {
             if (atom != null) atom.father = this;
         }
 
-        void generatePaths() {
-            assignId2Node(this);
-            this.paths.addAll(atom.paths);
+        @Override
+        public void generatePaths() {
+            if (pathGenerated) return;
+            // assignId2Node(this);
+            this.paths.addAll(atom.getPaths());
             this.beginInPath = atom.beginInPath;
             this.endInPath = atom.endInPath;
-            id2childNodes.get(this.id).add(atom.id);
-            id2childNodes.get(this.id).addAll(id2childNodes.get(atom.id));
         }
 
         @Override
@@ -1429,7 +1526,7 @@ public class Analyzer {
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             this.atom = newNode;
             if (newNode != null) newNode.father = this;
-            this.paths = new ArrayList<>(newNode.paths);
+            // this.paths = new ArrayList<>(newNode.paths);
         }
 
         @Override
@@ -1635,10 +1732,66 @@ public class Analyzer {
     }
 
     /**
+     * 遍历路径，检查记录所有countingNode
+     * @param root 根节点
+     * @param inLookaround 是否在lookaround中
+     */
+    private void scanAllPath(LeafNode root, boolean inLookaround) {
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            return;
+        }
+        if (root == null) {
+            return;
+        }
+        else {
+            assignId2Node(root);
+            if (root instanceof ConnectNode) {
+                if (((ConnectNode) root).left != null) {
+                    scanAllPath(((ConnectNode) root).left, inLookaround);
+                    id2childNodes.get(root.id).add(((ConnectNode) root).left.id);
+                    id2childNodes.get(root.id).addAll(id2childNodes.get(((ConnectNode) root).left.id));
+                }
+                if (((ConnectNode) root).right != null) {
+                    scanAllPath(((ConnectNode) root).right, inLookaround);
+                    id2childNodes.get(root.id).add(((ConnectNode) root).right.id);
+                    id2childNodes.get(root.id).addAll(id2childNodes.get(((ConnectNode) root).right.id));
+                }
+            }
+            else if (root instanceof BranchNode) {
+                for (LeafNode node : ((BranchNode) root).children) {
+                    if (node != null) {
+                        scanAllPath(node, inLookaround);
+                        id2childNodes.get(root.id).add(node.id);
+                        id2childNodes.get(root.id).addAll(id2childNodes.get(node.id));
+                    }
+                }
+            }
+            else if (root instanceof LoopNode) {
+                if (((LoopNode) root).atom != null) {
+                    scanAllPath(((LoopNode) root).atom, inLookaround);
+                    id2childNodes.get(root.id).add(((LoopNode) root).atom.id);
+                    id2childNodes.get(root.id).addAll(id2childNodes.get(((LoopNode) root).atom.id));
+                }
+                if(!inLookaround) countingNodes.add(root);
+            }
+            else if (root instanceof LookaroundNode) {
+                if (((LookaroundNode) root).atom != null) {
+                    scanAllPath(((LookaroundNode) root).atom, true);
+                    id2childNodes.get(root.id).add(((LookaroundNode) root).atom.id);
+                    id2childNodes.get(root.id).addAll(id2childNodes.get(((LookaroundNode) root).atom.id));
+                }
+            }
+
+            root.generateSelfRegex();
+        }
+    }
+
+    /**
      * 对传入的树，递归地生成每一个节点的Path，同时记录每个循环节点，并为每个节点分配id且记录每个节点下属所有孩子节点的id
      * @param root 根节点
      */
-    private void generateAllPath(LeafNode root, boolean inLookaround) {
+    private void generateAllPath(LeafNode root) {
         if(Thread.currentThread().isInterrupted()){
             System.out.println("线程请求中断...");
             return;
@@ -1648,41 +1801,29 @@ public class Analyzer {
         }
         else if (root instanceof LinkNode) {
             if (root instanceof ConnectNode) {
-                generateAllPath(((ConnectNode) root).left, inLookaround);
-                generateAllPath(((ConnectNode) root).right, inLookaround);
+                    generateAllPath(((ConnectNode) root).left);
+                    generateAllPath(((ConnectNode) root).right);
                 ((ConnectNode) root).generatePaths();
             }
             else if (root instanceof BranchNode) {
                 for (LeafNode node : ((BranchNode) root).children) {
-                    generateAllPath(node, inLookaround);
+                    generateAllPath(node);
                 }
                 ((BranchNode) root).generatePaths();
             }
             else if (root instanceof LoopNode) {
-                generateAllPath(((LoopNode) root).atom, inLookaround);
+                generateAllPath(((LoopNode) root).atom);
                 ((LoopNode) root).generatePaths();
-                if(!inLookaround) countingNodes.add(root);
             }
             else if (root instanceof LookaroundNode) {
-                generateAllPath(((LookaroundNode) root).atom, true);
+                generateAllPath(((LookaroundNode) root).atom);
                 ((LookaroundNode) root).generatePaths();
             }
         }
         else if (root instanceof LeafNode) {
-            assignId2Node(root);
-            if (root.actualNode == null) {
-                return;
-            }
-            else if (root.actualNode instanceof Pattern.CharProperty) {
-                root.paths = new ArrayList<>();
-                ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
-                if (((Pattern.CharProperty) root.actualNode).charSet.size() > 0) {
-                    tmpPath.add(((Pattern.CharProperty) root.actualNode).charSet);
-                }
-                root.paths.add(tmpPath);
-            }
+            root.generatePaths();
         }
-        root.generateSelfRegex();
+        root.pathGenerated = true;
     }
 
     private void assignId2Node(LeafNode node) {
@@ -1878,9 +2019,13 @@ public class Analyzer {
             generateFullSmallCharSet((Pattern.CharProperty) root);
 
             me = new LeafNode(groupNums, root);
+
             ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
-            tmpPath.add(((Pattern.CharProperty) root).charSet);
+            if (((Pattern.CharProperty) root).charSet.size() > 0) {
+                tmpPath.add(((Pattern.CharProperty) root).charSet);
+            }
             me.paths.add(tmpPath);
+            me.pathGenerated = true;
 
             brother = buildTree(root.next, groupNums);
         }
@@ -1895,6 +2040,7 @@ public class Analyzer {
                 tmpPath.add(tmpCharSet);
             }
             me.paths.add(tmpPath);
+            me.pathGenerated = true;
 
             brother = buildTree(root.next, groupNums);
         }
@@ -1909,6 +2055,7 @@ public class Analyzer {
                 tmpPath.add(tmpCharSet);
             }
             me.paths.add(tmpPath);
+            me.pathGenerated = true;
 
             brother = buildTree(root.next, groupNums);
         }
@@ -1968,7 +2115,8 @@ public class Analyzer {
         Set<Integer> charSet = new HashSet<>();
         root.selfRegex = "";
         int count = 0;
-        for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
+        // for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
+        for (int i = 0; i < 65536 && !Thread.currentThread().isInterrupted(); i++) {
             if (root.isSatisfiedBy(i)) {
                 charSet.add(i);
 
@@ -2029,7 +2177,7 @@ public class Analyzer {
 
         if (bigCharSetMap.size() > 20) {
             Set<Integer> charSet = new HashSet<>();
-            for (int i = 0; i < 128 && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
                 if (root.isSatisfiedBy(i)) {
                     charSet.add(i);
                 }

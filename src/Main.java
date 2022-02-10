@@ -1,9 +1,11 @@
 import redos.regex.Pattern4Search;
+import redos.regex.redosPattern;
 import regex.Analyzer;
 
 import java.io.*;
 import java.util.Base64;
 import java.util.concurrent.*;
+import java.util.regex.Pattern;
 
 import static java.lang.Thread.sleep;
 
@@ -15,8 +17,9 @@ public class Main {
         // log begin time
         long beginTime = System.currentTimeMillis();
 
-        // Pattern4Search testPattern = Pattern4Search.compile("(\\(\\s*)(?!\\s)(?:[^()]|\\([^()]*\\))+?(?=\\s*\\)\\s*=>)");
-        // System.out.println("match step:"+testPattern.getMatchingStepCnt("(a"," ", "\n\b\n", 10000, 100000));
+        // Pattern4Search testPattern = Pattern4Search.compile("(^|[^\\\\](?:\\\\\\\\)*)([\\\"'])(?:\\\\[\\s\\S]|\\$\\([^)]+\\)|`[^`]+`|(?!\\2)[^\\\\])*\\2");
+        // redosPattern testPattern = redosPattern.compile("~[rR](?:(\\\"\\\"\\\"|''')(?:\\\\[\\s\\S]|(?!\\1)[^\\\\])+\\1|([\\/|\\\"'])(?:\\\\.|(?!\\2)[^\\\\\\r\\n])+\\2|\\((?:\\\\.|[^\\\\)\\r\\n])+\\)|\\[(?:\\\\.|[^\\\\\\]\\r\\n])+\\]|\\{(?:\\\\.|[^\\\\}\\r\\n])+\\}|<(?:\\\\.|[^\\\\>\\r\\n])+>)[uismxfr]*");
+        // System.out.println("match step:"+testPattern.getMatchingStepCnt("", "~R\"\"", "\n\b\n", 30000, 100000000));
 
         // testDataSet("prism.txt");
         // testDataSet("prism-slq.txt");
@@ -24,7 +27,8 @@ public class Main {
 
         // testSingleRegex("((?:^|[^\\s\\w>)?])\\s*\\[\\s*)(?:(?:\\b(?:assembly|event|field|method|module|param|property|return|type)\\b)\\s*:\\s*)?(?:(?:(?!(?:\\b(?:class|enum|interface|struct|add|alias|and|ascending|async|await|by|descending|from|get|global|group|into|join|let|nameof|not|notnull|on|or|orderby|partial|remove|select|set|unmanaged|value|when|where|where|abstract|as|base|break|case|catch|checked|const|continue|default|delegate|do|else|event|explicit|extern|finally|fixed|for|foreach|goto|if|implicit|in|internal|is|lock|namespace|new|null|operator|out|override|params|private|protected|public|readonly|ref|return|sealed|sizeof|stackalloc|static|switch|this|throw|try|typeof|unchecked|unsafe|using|virtual|volatile|while|yield)\\b))(?:(?:@?\\b[A-Za-z_]\\w*\\b)(?:\\s*(?:<(?:[^<>;=+\\-*\\/%&|^]|(?:<(?:[^<>;=+\\-*\\/%&|^]|(?:<(?:[^<>;=+\\-*\\/%&|^]|(?:<(?:[^<>;=+\\-*\\/%&|^]|[^\\s\\S])*>))*>))*>))*>))?)(?:\\s*\\.\\s*(?:(?:@?\\b[A-Za-z_]\\w*\\b)(?:\\s*(?:<(?:[^<>;=+\\-*\\/%&|^]|(?:<(?:[^<>;=+\\-*\\/%&|^]|(?:<(?:[^<>;=+\\-*\\/%&|^]|(?:<(?:[^<>;=+\\-*\\/%&|^]|[^\\s\\S])*>))*>))*>))*>))?))*)(?:\\s*\\((?:[^\\\"'\\/()]|(?:\\/(?![*\\/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\((?:[^\\\"'\\/()]|(?:\\/(?![*\\/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\((?:[^\\\"'\\/()]|(?:\\/(?![*\\/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\((?:[^\\\"'\\/()]|(?:\\/(?![*\\/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\([^\\s\\S]*\\))*\\))*\\))*\\))*\\))?)(?=\\s*\\])");
         // testSingleRegex("((?:^|\\r?\\n|\\r)[\\t ]*)[%.#][\\w\\-#.]*[\\w\\-](?:\\([^)]+\\)|\\{(?:\\{[^}]+\\}|[^}])+\\}|\\[[^\\]]+\\])*[\\/<>]*");
-        testSingleRegex("((?:^|[^\\s\\w>)?])\\s*\\[\\s*)(?:(?:\\b(?:assembly|event|field|method|module|param|property|return|type)\\b)\\s*:\\s*)?(?:(?:(?!(?:\\b(?:class|enum|interface|struct|add|alias|and|ascending|async|await|by|descending|from|get|global|group|into|join|let|nameof|not|notnull|on|or|orderby|partial|remove|select|set|unmanaged|value|when|where|where|abstract|as|base|break|case|catch|checked|const|continue|default|delegate|do|else|event|explicit|extern|finally|fixed|for|foreach|goto|if|implicit|in|internal|is|lock|namespace|new|null|operator|out|override|params|private|protected|public|readonly|ref|return|sealed|sizeof|stackalloc|static|switch|this|throw|try|typeof|unchecked|unsafe|using|virtual|volatile|while|yield)\\b))(?:(?:@?\\b[A-Za-z_]\\w*\\b)(?:\\s*(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|[^\\s\\S])*>))*>))*>))*>))?)(?:\\s*\\.\\s*(?:(?:@?\\b[A-Za-z_]\\w*\\b)(?:\\s*(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|[^\\s\\S])*>))*>))*>))*>))?))*)(?:\\s*\\((?:[^\\\"'/()]|(?:\\/(?![*/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\((?:[^\\\"'/()]|(?:\\/(?![*/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\((?:[^\\\"'/()]|(?:\\/(?![*/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\((?:[^\\\"'/()]|(?:\\/(?![*/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\([^\\s\\S]*\\))*\\))*\\))*\\))*\\))?)(?:\\s*,\\s*(?:(?:(?!(?:\\b(?:class|enum|interface|struct|add|alias|and|ascending|async|await|by|descending|from|get|global|group|into|join|let|nameof|not|notnull|on|or|orderby|partial|remove|select|set|unmanaged|value|when|where|where|abstract|as|base|break|case|catch|checked|const|continue|default|delegate|do|else|event|explicit|extern|finally|fixed|for|foreach|goto|if|implicit|in|internal|is|lock|namespace|new|null|operator|out|override|params|private|protected|public|readonly|ref|return|sealed|sizeof|stackalloc|static|switch|this|throw|try|typeof|unchecked|unsafe|using|virtual|volatile|while|yield)\\b))(?:(?:@?\\b[A-Za-z_]\\w*\\b)(?:\\s*(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|[^\\s\\S])*>))*>))*>))*>))?)(?:\\s*\\.\\s*(?:(?:@?\\b[A-Za-z_]\\w*\\b)(?:\\s*(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|(?:<(?:[^<>;=+\\-*/%&|^]|[^\\s\\S])*>))*>))*>))*>))?))*)(?:\\s*\\((?:[^\\\"'/()]|(?:\\/(?![*/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\((?:[^\\\"'/()]|(?:\\/(?![*/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\((?:[^\\\"'/()]|(?:\\/(?![*/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\((?:[^\\\"'/()]|(?:\\/(?![*/])|\\/\\/[^\\r\\n]*[\\r\\n]|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})'))|\\([^\\s\\S]*\\))*\\))*\\))*\\))*\\))?))*(?=\\s*\\])");
+        // testSingleRegex("(^|[^@\\\\])\\$\\\"(?:\\\\.|\\{\\{|(?:\\{(?!\\{)(?:(?![}:])(?:[^\\\"'/()]|\\/(?!\\*)|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})')|\\((?:[^\\\"'/()]|\\/(?!\\*)|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})')|\\((?:[^\\\"'/()]|\\/(?!\\*)|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})')|\\((?:[^\\\"'/()]|\\/(?!\\*)|\\/\\*(?:[^*]|\\*(?!\\/))*\\*\\/|(?:\\\"(?:\\\\.|[^\\\\\\\"\\r\\n])*\\\"|'(?:[^\\r\\n'\\\\]|\\\\.|\\\\[Uux][\\da-fA-F]{1,8})')|\\([^\\s\\S]*\\))*\\))*\\))*\\)))*(?::[^}\\r\\n]+)?\\})|[^\\\\\\\"{])*\\\"");
+        testSingleRegex("((?:\\b|\\s|^)(?!(?:as|async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|finally|for|from|function|get|if|implements|import|in|instanceof|interface|let|new|null|of|package|private|protected|public|return|set|static|super|switch|this|throw|try|typeof|undefined|var|void|while|with|yield)(?![$\\w\\xA0-\\uFFFF]))(?:[_$A-Za-z\\xA0-\\uFFFF][$\\w\\xA0-\\uFFFF]*\\s*)\\(\\s*|\\]\\s*\\(\\s*)(?!\\s)(?:[^()]|\\([^()]*\\))+?(?=\\s*\\)\\s*\\{)");
 
         // log end time and print run time
         long endTime = System.currentTimeMillis();
@@ -34,7 +38,7 @@ public class Main {
     private static void testSingleRegex(String regex) {
         // log start time
         long startTime = System.currentTimeMillis();
-        Analyzer a = new Analyzer(regex, 5, -1);
+        Analyzer a = new Analyzer(regex, 7, -1);
         // log end time and print run time
         long endTime = System.currentTimeMillis();
         System.out.println(a.attackable);
@@ -89,6 +93,15 @@ public class Main {
 }
 
 class Tester {
+    boolean runTime = false;
+    // boolean runTime = true;
+
+    // boolean realTest = false;
+    boolean realTest = true;
+
+    long startTime = 0;
+    long endTime = 0;
+
     class attackResult {
         public boolean attackable;
         public String attackMsg;
@@ -112,7 +125,7 @@ class Tester {
             public attackResult call() throws Exception {
                 //开始执行耗时操作 ，这个方法为你要限制执行时间的方法
                 try {
-                    Analyzer a = new Analyzer(regex, 5, id);
+                    Analyzer a = new Analyzer(regex, 10, id);
                     return new attackResult(a.attackable, a.attackMsg);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -129,8 +142,12 @@ class Tester {
         String result = "";
         Future<attackResult> future = null;
         String base64Regex = "";
-        // log start time
-        long startTime = System.currentTimeMillis();
+
+        if (runTime) {
+            // log start time
+            startTime = System.currentTimeMillis();
+        }
+
         try {
             base64Regex = Base64.getEncoder().encodeToString(regex.getBytes("utf-8"));
         } catch (UnsupportedEncodingException e) {
@@ -141,12 +158,12 @@ class Tester {
             //返回值类型为限制的方法的返回值类型
             attackMsg = future.get(1000 * 5, TimeUnit.MILLISECONDS); //任务处理超时时间设为 5 秒
 
-            // result += id + "," + base64Regex + "," + attackMsg.attackable + "," + attackMsg.attackMsg + "\n";
-            result += "success,";
+            if (realTest) result += id + "," + base64Regex + "," + attackMsg.attackable + "," + attackMsg.attackMsg + "\n";
+            if (runTime) result += "success,";
         } catch (TimeoutException ex) {
             future.cancel(true);
-            // result += id + "," + base64Regex + "," + "Timeout\n";
-            result += "timeout,";
+            if (realTest) result += id + "," + base64Regex + "," + "Timeout\n";
+            if (runTime) result += "timeout,";
         } catch (Exception e) {
             String base64Exception = "";
             try {
@@ -154,13 +171,16 @@ class Tester {
             } catch (UnsupportedEncodingException ee) {
                 e.printStackTrace();
             }
-            // result += id + "," + base64Regex + "," + base64Exception + "\n";
-            result += "exception,";
+            if (realTest) result += id + "," + base64Regex + "," + base64Exception + "\n";
+            if (runTime) result += "exception,";
             e.printStackTrace();
         }
-        // log end time
-        long endTime = System.currentTimeMillis();
-        result += (endTime - startTime) + "," + base64Regex + "\n";
+
+        if (runTime) {
+            // log end time
+            endTime = System.currentTimeMillis();
+            result += (endTime - startTime) + "," + base64Regex + "\n";
+        }
 
         // System.out.println(result);
         BufferedWriter writer = null;

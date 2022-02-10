@@ -2561,7 +2561,7 @@ __[A-Z]+__
 (^|[^:-])\b(?:attribute|comment|document|element|processing-instruction|text|xs:(?:anyAtomicType|anyType|anyURI|base64Binary|boolean|byte|date|dateTime|dayTimeDuration|decimal|double|duration|ENTITIES|ENTITY|float|gDay|gMonth|gMonthDay|gYear|gYearMonth|hexBinary|ID|IDREFS?|int|integer|language|long|Name|NCName|negativeInteger|NMTOKENS?|nonNegativeInteger|nonPositiveInteger|normalizedString|NOTATION|positiveInteger|QName|short|string|time|token|unsigned(?:Byte|Int|Long|Short)|untyped(?:Atomic)?|yearMonthDuration))\b(?=$|[^:-])
 [+*=?|@]|\.\.?|:=|!=|<[=<]?|>[=>]?
 (\s)-(?=\s)
-0.0
+=(?:(\"|')(?:\\[\s\S]|{(?!{)(?:{(?:{[^{}]*}|[^{}])*}|[^{}])+}|(?!\1)[^\\])*\1|[^\s'\">=]+))
 ^=\"|\"$
 {(?!{)(?:{(?:{[^{}]*}|[^{}])*}|[^{}])+}
 \/\*[\s\S]*?\*\/|\/\/.*
