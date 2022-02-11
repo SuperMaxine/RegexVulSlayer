@@ -312,11 +312,12 @@ public class Analyzer {
                                 for (ArrayList<Set<Integer>> path3 : backNode.getPaths()) {
                                     if (path3.size() == 0 || path3.size() != path1.size()) continue;
                                     // 通过first和last判断是否可以跳过这条路径
-                                    tmpPath = new ArrayList<>(path3);
-                                    tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
-                                    tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
-                                    if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
-                                    else path3 = tmpPath;
+                                    // tmpPath = new ArrayList<>(path3);
+                                    // tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
+                                    // tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
+                                    // if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
+                                    // else
+                                    //     path3 = tmpPath;
 
                                     ArrayList<Set<Integer>> overlap = getPathCompletelyOverLap(path1, path3);
                                     if (overlap.size() == 0) continue;
