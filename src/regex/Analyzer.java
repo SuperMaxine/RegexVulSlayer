@@ -38,8 +38,8 @@ public class Analyzer {
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    private final boolean debugStuck = true;
-    // private final boolean debugStuck = false;
+    // private final boolean debugStuck = true;
+    private final boolean debugStuck = false;
 
     private final boolean debugFirstAndLast = true;
     // private final boolean debugFirstAndLast = false;
@@ -49,6 +49,9 @@ public class Analyzer {
 
     // private final boolean SpaceFullSet = true;
     private final boolean SpaceFullSet = false;
+
+    private final int charSetRange = 65536;
+    // private final int charSetRange = 256;
 
     long startTime;
     long endTime;
@@ -308,6 +311,8 @@ public class Analyzer {
                                 tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
                                 if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
                                 else path1 = tmpPath;
+
+                                // if (setsIntersection(path1.get(0), firstIntersection).size() == 0 && setsIntersection(path1.get(path1.size() - 1), lastIntersection).size() == 0) continue;
 
                                 for (ArrayList<Set<Integer>> path3 : backNode.getPaths()) {
                                     if (path3.size() == 0 || path3.size() != path1.size()) continue;
@@ -2202,7 +2207,7 @@ public class Analyzer {
         root.selfRegex = "";
         int count = 0;
         // for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
-        for (int i = 0; i < 65536 && !Thread.currentThread().isInterrupted(); i++) {
+        for (int i = 0; i < charSetRange && !Thread.currentThread().isInterrupted(); i++) {
             if (root.isSatisfiedBy(i)) {
                 charSet.add(i);
 
@@ -2667,7 +2672,7 @@ public class Analyzer {
      */
     private void generateRawCharSet(Pattern.CharProperty root) {
         // 默认的处理方法
-        for (int i = 0; i < 65536 && !Thread.currentThread().isInterrupted(); i++) {
+        for (int i = 0; i < charSetRange && !Thread.currentThread().isInterrupted(); i++) {
             if (root.isSatisfiedBy(i)) {
                 root.charSet.add(i);
             }
