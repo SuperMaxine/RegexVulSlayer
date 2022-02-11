@@ -24,8 +24,8 @@ public class Analyzer {
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
-    // private final boolean POA = true;
-    private final boolean POA = false;
+    private final boolean POA = true;
+    // private final boolean POA = false;
     // private final boolean SLQ = true;
     private final boolean SLQ = false;
 
@@ -38,14 +38,17 @@ public class Analyzer {
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    // private final boolean debugStuck = true;
-    private final boolean debugStuck = false;
+    private final boolean debugStuck = true;
+    // private final boolean debugStuck = false;
 
     private final boolean debugFirstAndLast = true;
     // private final boolean debugFirstAndLast = false;
 
-    // private final boolean realTest = true;
-    private final boolean realTest = false;
+    private final boolean realTest = true;
+    // private final boolean realTest = false;
+
+    // private final boolean SpaceFullSet = true;
+    private final boolean SpaceFullSet = false;
 
     String regex;
     int maxLength;
@@ -119,8 +122,8 @@ public class Analyzer {
         // 对新树生成所有路径
         // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
         scanAllPath(root, false);
-        System.out.println("\n\n-----------------------\n\n\nflowchart TD");
-        printTree(root, true);
+        // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
+        // printTree(root, true);
         // 记录结束时间
         endTime = System.currentTimeMillis();
         System.out.println("id:"+id+",scanAllPath cost time: " + (endTime - startTime) + "ms");
@@ -245,7 +248,8 @@ public class Analyzer {
                         // LeafNode node2 = countingNodes.get(j);
                         // ArrayList<ArrayList<Set<Integer>>> debugMidPaths = midPathsAndFrontNode.getKey();
 
-                        if (midPathsAndFrontNode.getKey().size() == 0) {
+                        if (midPathsAndFrontNode.getKey().size() == 0 || midPathsAndFrontNode.getKey().get(0).size() == 0) {
+                        // if (midPathsAndFrontNode.getKey().size() == 0) {
                             // 说明两者直接相邻
 
                             // 通过First和Last判断是否可以跳过
@@ -2558,17 +2562,19 @@ public class Analyzer {
     Set<Integer> Space = getNodeCharSet(SpaceP.root.next);
     Set<Integer> SpaceFull = new HashSet<Integer>(){{
         addAll(Space);
-        add(0x00a0);
-        add(0x1680);
-        for (int i = 0x2000; i <= 0x200a; i++) {
-            add(i);
+        if (SpaceFullSet) {
+            add(0x00a0);
+            add(0x1680);
+            for (int i = 0x2000; i <= 0x200a; i++) {
+                add(i);
+            }
+            add(0x2028);
+            add(0x2029);
+            add(0x202f);
+            add(0x205f);
+            add(0x3000);
+            add(0xfeff);
         }
-        add(0x2028);
-        add(0x2029);
-        add(0x202f);
-        add(0x205f);
-        add(0x3000);
-        add(0xfeff);
     }};
     Set<Integer> noneSpace = getNodeCharSet(noneSpaceP.root.next);
     Set<Integer> word = getNodeCharSet(wordP.root.next);
