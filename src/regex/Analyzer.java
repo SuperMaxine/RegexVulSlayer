@@ -231,16 +231,19 @@ public class Analyzer {
 
                             if (debugPath) attackMsg += "POA-Direct Adjacent:\nnode1 paths\n" + printPaths(countingNodes.get(i).getPaths(), false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).getPaths(), false) + "\n\n";
                             for (ArrayList<Set<Integer>> path1 : countingNodes.get(i).getPaths()) {
+                                if (path1.size() == 0) continue;
 
                                 // 通过first和last判断是否可以跳过这条路径
                                 ArrayList<Set<Integer>> tmpPath = new ArrayList<>(path1);
                                 tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
                                 tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
                                 if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
+                                else path1 = tmpPath;
 
                                 for (ArrayList<Set<Integer>> path2 : countingNodes.get(j).getPaths()) {
                                     if (threadInterrupt("\nTraversing paths time out\n", true)) return;
-
+                                    if (path2.size() == 0 || path1.size() != path2.size()) continue;
+                                    
                                     ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
@@ -290,8 +293,10 @@ public class Analyzer {
 
                             // \w+0 vs \d+
                             for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.getPaths(), midPathsAndFrontNode.getKey())) {
+                                if (path1.size() == 0) continue;
                                 for (ArrayList<Set<Integer>> path2 : backNode.getPaths()) {
                                     if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+                                    if (path2.size() == 0 || path1.size() != path2.size()) continue;
 
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
@@ -311,8 +316,10 @@ public class Analyzer {
 
                             // \w+ vs 0\d+
                             for (ArrayList<Set<Integer>> path1 : splicePath(midPathsAndFrontNode.getKey(), backNode.getPaths())) {
+                                if (path1.size() == 0) continue;
                                 for (ArrayList<Set<Integer>> path2 : frontNode.getPaths()) {
                                     if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+                                    if (path2.size() == 0 || path1.size() != path2.size()) continue;
 
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
