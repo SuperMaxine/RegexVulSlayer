@@ -247,8 +247,21 @@ public class Analyzer {
 
                         if (midPathsAndFrontNode.getKey().size() == 0) {
                             // 说明两者直接相邻
+
+                            // 通过First和Last判断是否可以跳过
+                            Set<Integer> firstIntersection = new HashSet<>(setsIntersection(countingNodes.get(i).first, countingNodes.get(j).first));
+                            Set<Integer> lastIntersection = new HashSet<>(setsIntersection(countingNodes.get(i).last, countingNodes.get(j).last));
+                            if (firstIntersection.size() == 0 && lastIntersection.size() == 0) continue;
+
                             if (debugPath) attackMsg += "POA-Direct Adjacent:\nnode1 paths\n" + printPaths(countingNodes.get(i).getPaths(), false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).getPaths(), false) + "\n\n";
                             for (ArrayList<Set<Integer>> path1 : countingNodes.get(i).getPaths()) {
+
+                                // 通过first和last判断是否可以跳过这条路径
+                                ArrayList<Set<Integer>> tmpPath = new ArrayList<>(path1);
+                                tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
+                                tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
+                                if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
+
                                 for (ArrayList<Set<Integer>> path2 : countingNodes.get(j).getPaths()) {
                                     if(Thread.currentThread().isInterrupted()){
                                         System.out.println("线程请求中断...");
@@ -2632,6 +2645,42 @@ public class Analyzer {
         }
         //最后比containsAll
         return set1.containsAll(set2);
+    }
+
+    /**
+     * 求两个集合的交集
+     * @param set1
+     * @param set2
+     * @return
+     */
+    public Set<Integer> setsIntersection(Set<Integer> set1, Set<Integer> set2) {
+        Set<Integer> result = new HashSet<Integer>(set1);
+        result.retainAll(set2);
+        return result;
+    }
+
+    /**
+     * 求两个集合的并集
+     * @param set1
+     * @param set2
+     * @return
+     */
+    public Set<Integer> setsMerge(Set<Integer> set1, Set<Integer> set2) {
+        Set<Integer> result = new HashSet<Integer>(set1);
+        result.addAll(set2);
+        return result;
+    }
+
+    /**
+     * 求两个集合的差集
+     * @param set1
+     * @param set2
+     * @return
+     */
+    public Set<Integer> setsDifference(Set<Integer> set1, Set<Integer> set2) {
+        Set<Integer> result = new HashSet<Integer>(set1);
+        result.removeAll(set2);
+        return result;
     }
 
     /**
