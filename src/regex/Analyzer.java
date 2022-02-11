@@ -176,6 +176,7 @@ public class Analyzer {
 
         if (OneCouting) {
             for (LeafNode node : countingNodes) {
+                if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
                 for (int i = 0 ; i < node.getPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
                     for (int j = i + 1; j < node.getPaths().size() && !Thread.currentThread().isInterrupted(); j++) {
                         ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.getPaths().get(i), node.getPaths().get(j));
@@ -213,9 +214,8 @@ public class Analyzer {
                     if (debugPath) attackMsg += "----------------------------------------------------------\nnode1(id:"+node1.id+") regex:\n"+node1.SelfRegex+"\nnode2(id:"+countingNodes.get(j).id+") regex:\n"+countingNodes.get(j).SelfRegex+"\n";
                     // 判断嵌套、直接相邻，以及夹着内容相邻
                     // 嵌套结构跳过不测
-                    if (isNode1ChildOfNode2(node1, node2) || isNode1ChildOfNode2(node2, node1)) {
-                        continue;
-                    }
+                    if (isNode1ChildOfNode2(node1, node2) || isNode1ChildOfNode2(node2, node1)) continue;
+
                     else {
                         if (debugStuck) System.out.println("node1: " + node1.id + " node2: " + node2.id);
                         // 找到两者的公共父节点，然后求出两者之间夹着的路径
