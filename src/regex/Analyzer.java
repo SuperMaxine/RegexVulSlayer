@@ -50,6 +50,9 @@ public class Analyzer {
     // private final boolean SpaceFullSet = true;
     private final boolean SpaceFullSet = false;
 
+    long startTime;
+    long endTime;
+
     String regex;
     int maxLength;
     private Set<Integer> fullSmallCharSet;
@@ -94,16 +97,14 @@ public class Analyzer {
         id2childNodes = new HashMap<>();
 
         // 记录开始时间
-        long startTime = System.currentTimeMillis();
+        startTime = System.currentTimeMillis();
         //  建立原始树
         Pattern rawPattern = Pattern.compile(regex);
         root = buildTree(rawPattern.root, new HashSet<>());
         // System.out.println("flowchart TD");
         // printTree(root, true);
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return;
-        }
+        if (threadInterrupt("", false)) return;
+
         // 对原始树进行优化，生成新树
         root = buildFinalTree(root);
         // 生成所有字符集，生成字符集只改变了Pattern.Node的charSet，并没有改变tree中LeafNode的path，还需注意
@@ -112,11 +113,9 @@ public class Analyzer {
         generateAllBigCharSet();
         // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
         // printTree(root, true);
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return;
-        }
-        long endTime = System.currentTimeMillis();
+        if (threadInterrupt("", false)) return;
+
+        endTime = System.currentTimeMillis();
         System.out.println("id:"+id+",Build tree cost time: " + (endTime - startTime) + "ms");
         startTime = endTime;
         // 对新树生成所有路径
@@ -128,21 +127,8 @@ public class Analyzer {
         endTime = System.currentTimeMillis();
         System.out.println("id:"+id+",scanAllPath cost time: " + (endTime - startTime) + "ms");
 
+        if (threadInterrupt("generate all path time out", true)) return;
 
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            if (debugPath) {
-                try {
-                    attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString("generate all path time out".getBytes("utf-8"));
-                    BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
-                    writer.write(id + "," + attackMsg + "\n");
-                    writer.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            return;
-        }
 
         // --------------------生成树阶段结束，对漏洞进行攻击阶段开始-----------------------------
 
@@ -182,20 +168,8 @@ public class Analyzer {
         // }
 
 
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            if (debugPath) {
-                try {
-                    attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString("generate all pre path time out".getBytes("utf-8"));
-                    BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
-                    writer.write(id + "," + attackMsg + "\n");
-                    writer.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            return;
-        }
+        if (threadInterrupt("generate all path time out", true)) return;
+
 
         if (OneCouting) {
             for (LeafNode node : countingNodes) {
@@ -214,10 +188,8 @@ public class Analyzer {
                                 countingPrePaths.put(node, prePaths);
                             }
                             for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
-                                if(Thread.currentThread().isInterrupted()){
-                                    System.out.println("线程请求中断...");
-                                    return;
-                                }
+                                if (threadInterrupt("", false)) return;
+
                                 Enumerator preEnum = new Enumerator(prePath);
                                 Enumerator pumpEnum = new Enumerator(pumpPath);
                                 if (dynamicValidate(preEnum, pumpEnum, VulType.OneCounting)) return;
@@ -267,25 +239,8 @@ public class Analyzer {
                                 if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
 
                                 for (ArrayList<Set<Integer>> path2 : countingNodes.get(j).getPaths()) {
-                                    if(Thread.currentThread().isInterrupted()){
-                                        System.out.println("线程请求中断...");
-                                        if (debugPath) {
-                                            try {
-                                                attackMsg += "\nTraversing paths time out\n";
-                                                attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
-                                            } catch (UnsupportedEncodingException e) {
-                                                e.printStackTrace();
-                                            }
-                                            try {
-                                                BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
-                                                writer.write(id + "," + attackMsg + "\n");
-                                                writer.close();
-                                            } catch (IOException e) {
-                                                e.printStackTrace();
-                                            }
-                                        }
-                                        return;
-                                    }
+                                    if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+
                                     ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
@@ -336,34 +291,15 @@ public class Analyzer {
                             // \w+0 vs \d+
                             for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.getPaths(), midPathsAndFrontNode.getKey())) {
                                 for (ArrayList<Set<Integer>> path2 : backNode.getPaths()) {
-                                    if(Thread.currentThread().isInterrupted()){
-                                        System.out.println("线程请求中断...");
-                                        if (debugPath) {
-                                            try {
-                                                attackMsg += "\nTraversing paths time out\n";
-                                                attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
-                                            } catch (UnsupportedEncodingException e) {
-                                                e.printStackTrace();
-                                            }
-                                            try {
-                                                BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
-                                                writer.write(id + "," + attackMsg + "\n");
-                                                writer.close();
-                                            } catch (IOException e) {
-                                                e.printStackTrace();
-                                            }
-                                        }
-                                        return;
-                                    }
+                                    if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
                                         if (realTest) {
                                             for (ArrayList<Set<Integer>> prePath : prePaths) {
-                                                if(Thread.currentThread().isInterrupted()){
-                                                    System.out.println("线程请求中断...");
-                                                    return;
-                                                }
+                                                if (threadInterrupt("", false)) return;
+
                                                 Enumerator preEnum = new Enumerator(prePath);
                                                 Enumerator pumpEnum = new Enumerator(pumpPath);
                                                 if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
@@ -376,34 +312,15 @@ public class Analyzer {
                             // \w+ vs 0\d+
                             for (ArrayList<Set<Integer>> path1 : splicePath(midPathsAndFrontNode.getKey(), backNode.getPaths())) {
                                 for (ArrayList<Set<Integer>> path2 : frontNode.getPaths()) {
-                                    if(Thread.currentThread().isInterrupted()){
-                                        System.out.println("线程请求中断...");
-                                        if (debugPath) {
-                                            try {
-                                                attackMsg += "\nTraversing paths time out\n";
-                                                attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
-                                            } catch (UnsupportedEncodingException e) {
-                                                e.printStackTrace();
-                                            }
-                                            try {
-                                                BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
-                                                writer.write(id + "," + attackMsg + "\n");
-                                                writer.close();
-                                            } catch (IOException e) {
-                                                e.printStackTrace();
-                                            }
-                                        }
-                                        return;
-                                    }
+                                    if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+
                                     pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
                                         if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
                                         if (realTest) {
                                             for (ArrayList<Set<Integer>> prePath : prePaths) {
-                                                if(Thread.currentThread().isInterrupted()){
-                                                    System.out.println("线程请求中断...");
-                                                    return;
-                                                }
+                                                if (threadInterrupt("", false)) return;
+
                                                 Enumerator preEnum = new Enumerator(prePath);
                                                 Enumerator pumpEnum = new Enumerator(pumpPath);
                                                 if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
@@ -442,25 +359,8 @@ public class Analyzer {
             Enumerator preEnum = new Enumerator(new ArrayList<>());
             for (LeafNode node : countingNodes) {
                 if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
-                if(Thread.currentThread().isInterrupted()){
-                    System.out.println("线程请求中断...");
-                    if (debugPath) {
-                        try {
-                            attackMsg += "\nTraversing paths time out\n";
-                            attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
-                        } catch (UnsupportedEncodingException e) {
-                            e.printStackTrace();
-                        }
-                        try {
-                            BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
-                            writer.write(id + "," + attackMsg + "\n");
-                            writer.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    return;
-                }
+                if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+
                 // 如果cmax小于100或后缀可空，则不需要检查
                 if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) continue;
                 // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
@@ -521,25 +421,8 @@ public class Analyzer {
                     // SLQ2：counting开头不可空，判断前缀是否是中缀的子串，如果有重叠，测试""+(中缀&前缀）*n+"\b\n\b"
                     for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
-                            if(Thread.currentThread().isInterrupted()){
-                                System.out.println("线程请求中断...");
-                                if (debugPath) {
-                                    try {
-                                        attackMsg += "\nTraversing paths time out\n";
-                                        attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
-                                    } catch (UnsupportedEncodingException e) {
-                                        e.printStackTrace();
-                                    }
-                                    try {
-                                        BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
-                                        writer.write(id + "," + attackMsg + "\n");
-                                        writer.close();
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
-                                    }
-                                }
-                                return;
-                            }
+                            if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+
                             if (prePath.size() == 0) continue;
                             // if (isPath2InPath1(pumpPath, prePath)) {
                             //     Enumerator pumpEnum = new Enumerator(pumpPath);
@@ -592,6 +475,29 @@ public class Analyzer {
                 e.printStackTrace();
             }
         }
+    }
+
+    boolean threadInterrupt(String debugMsg, boolean debug) {
+        if(Thread.currentThread().isInterrupted()){
+            System.out.println("线程请求中断...");
+            if (debugPath && debug) {
+                try {
+                    attackMsg += debugMsg;
+                    attackMsg = (endTime - startTime) + "," + Base64.getEncoder().encodeToString(attackMsg.getBytes("utf-8"));
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                    writer.write(id + "," + attackMsg + "\n");
+                    writer.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -1220,10 +1126,8 @@ public class Analyzer {
             else {
                 for (ArrayList<Set<Integer>> leftPath : leftPaths) {
                     for (ArrayList<Set<Integer>> rightPath : rightPaths) {
-                        if(Thread.currentThread().isInterrupted()){
-                            System.out.println("线程请求中断...");
-                            return;
-                        }
+                        if (threadInterrupt("", false)) return;
+
                         if (leftPath.size() + rightPath.size() > maxLength) {
                             continue;
                         }
@@ -1235,10 +1139,8 @@ public class Analyzer {
                 }
             }
 
-            if(Thread.currentThread().isInterrupted()){
-                System.out.println("线程请求中断...");
-                return;
-            }
+            if (threadInterrupt("", false)) return;
+
 
             Collections.sort((this.paths), new Comparator<ArrayList<Set<Integer>>>() {
                 @Override
@@ -1366,10 +1268,8 @@ public class Analyzer {
             this.beginInPath = true;
             this.endInPath = true;
             for (LeafNode child : children) {
-                if(Thread.currentThread().isInterrupted()){
-                    System.out.println("线程请求中断...");
-                    return;
-                }
+                if (threadInterrupt("", false)) return;
+
                 childrenPaths.put(child, new ArrayList<>(child.getPaths()));
                 if (!(child instanceof LookaroundNode)) {
                     this.paths.addAll(child.getPaths());
@@ -1390,10 +1290,8 @@ public class Analyzer {
             this.SelfRegex = "(";
             int count = 0;
             for (LeafNode child : children) {
-                if(Thread.currentThread().isInterrupted()){
-                    System.out.println("线程请求中断...");
-                    return;
-                }
+                if (threadInterrupt("", false)) return;
+
                 if (child != null) {
                     if (count != 0) this.SelfRegex += "|";
                     this.SelfRegex += child.SelfRegex;
@@ -1408,10 +1306,8 @@ public class Analyzer {
         public void generateFistAndLast(){
             boolean allChildrenCouldBeEmpty = true;
             for (LeafNode child : children) {
-                if(Thread.currentThread().isInterrupted()){
-                    System.out.println("线程请求中断...");
-                    return;
-                }
+                if (threadInterrupt("", false)) return;
+
                 if (child != null && !(child instanceof LookaroundNode)) {
                     if (child.couldBeEmpty) allChildrenCouldBeEmpty = false;
                     this.first.addAll(child.first);
@@ -1424,10 +1320,8 @@ public class Analyzer {
         @Override
         void replaceChild(LeafNode oldNode, LeafNode newNode) {
             for (int i = 0; i < children.size(); i++) {
-                if(Thread.currentThread().isInterrupted()){
-                    System.out.println("线程请求中断...");
-                    return;
-                }
+                if (threadInterrupt("", false)) return;
+
                 if (children.get(i) == oldNode) {
                     children.set(i, newNode);
                     if (newNode != null) newNode.father = this;
@@ -1494,10 +1388,8 @@ public class Analyzer {
                 for (ArrayList<Set<Integer>> atomPath : atomPaths) {
                     if (atomPath.size() == 0) continue;
                     for (ArrayList<Set<Integer>> lastPath : lastPaths) {
-                        if(Thread.currentThread().isInterrupted()){
-                            System.out.println("线程请求中断...");
-                            return;
-                        }
+                        if (threadInterrupt("", false)) return;
+
                         if (lastPath.size() + atomPath.size() > maxLength) {
                             continue;
                         }
@@ -1517,10 +1409,8 @@ public class Analyzer {
                 for (ArrayList<Set<Integer>> atomPath : atomPaths) {
                     if (atomPath.size() == 0) continue;
                     for (ArrayList<Set<Integer>> lastPath : lastPaths) {
-                        if(Thread.currentThread().isInterrupted()){
-                            System.out.println("线程请求中断...");
-                            return;
-                        }
+                        if (threadInterrupt("", false)) return;
+
                         if (lastPath.size() + atomPath.size() > maxLength) {
                             continue;
                         }
@@ -1840,10 +1730,8 @@ public class Analyzer {
         else {
             for (ArrayList<Set<Integer>> prefixPath : prefix) {
                 for (ArrayList<Set<Integer>> suffixPath : suffix) {
-                    if(Thread.currentThread().isInterrupted()){
-                        System.out.println("线程请求中断...");
-                        return result;
-                    }
+                    if (threadInterrupt("", false)) return result;
+
                     if (prefixPath.size() + suffixPath.size() <= maxLength) {
                         ArrayList<Set<Integer>> newPath = new ArrayList<>();
                         newPath.addAll(prefixPath);
@@ -1862,10 +1750,8 @@ public class Analyzer {
      * @param inLookaround 是否在lookaround中
      */
     private void scanAllPath(LeafNode root, boolean inLookaround) {
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return;
-        }
+        if (threadInterrupt("", false)) return;
+
         if (root == null) {
             return;
         }
@@ -1918,10 +1804,8 @@ public class Analyzer {
      * @param root 根节点
      */
     private void generateAllPath(LeafNode root) {
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return;
-        }
+        if (threadInterrupt("", false)) return;
+
         if (root == null) {
             return;
         }
@@ -1970,10 +1854,7 @@ public class Analyzer {
             ((LinkNode)node.father).replaceChild(node, copyGroupTree(rawGroupRoot, groupIndex2LocalIndex.get(((BackRefNode)node).groupIndex), node.father));
         }
 
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return null;
-        }
+        if (threadInterrupt("", false)) return null;
 
         // 2. 判断是否在前部加入.{0,3}
         if (branchAtFirst(root) == 1) {
@@ -1984,28 +1865,21 @@ public class Analyzer {
             root = new ConnectNode(dotTree, root, new HashSet<>());
         }
 
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return null;
-        }
+        if (threadInterrupt("", false)) return null;
 
         // 3. 是将结尾的lookaround拿出还是在尾部添加[\s\S]*
         // a. 如果结尾单独一个lookaround，则需要把lookaround拿出来缀在末尾
         searchLookaroundAtLast(root);
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return root;
-        }
+        if (threadInterrupt("", false)) return root;
+
         if (lookaroundAtLast.size() == 1) {
             ((LinkNode)lookaroundAtLast.get(0).father).replaceChild(lookaroundAtLast.get(0), ((LookaroundNode)lookaroundAtLast.get(0)).atom);
         }
         // b. 如果结尾有多个连续的lookaround，则需要在结尾加上[\s\S]*
         if (lookaroundAtLast.size() > 1) {
             for (LeafNode node : lookaroundAtLast) {
-                if(Thread.currentThread().isInterrupted()){
-                    System.out.println("线程请求中断...");
-                    return root;
-                }
+                if (threadInterrupt("", false)) return root;
+
                 ((LinkNode)node.father).replaceChild(node, null);
             }
             Pattern tailPattern = Pattern.compile("[\\s\\S]*");
@@ -2026,10 +1900,8 @@ public class Analyzer {
      * @return 拷贝出来的新节点
      */
     private LeafNode copyGroupTree(LeafNode root, int localIndex, LeafNode father) {
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return null;
-        }
+        if (threadInterrupt("", false)) return null;
+
         LeafNode result = null;
         if (root == null){
             return null;
@@ -2065,10 +1937,8 @@ public class Analyzer {
      * @return 本层递归节点需要返回的LeafNode
      */
     private LeafNode buildTree(Pattern.Node root, Set<Integer> rawgroupNums) {
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return null;
-        }
+        if (threadInterrupt("", false)) return null;
+
         LeafNode result = null;
         LeafNode me = null;
         LeafNode brother = null;
@@ -2292,10 +2162,8 @@ public class Analyzer {
     private void generateAllBigCharSet() {
         // 遍历化bigCharSetMap节点
         for (Map.Entry<Pattern.Node, Set<Integer>> entry : bigCharSetMap.entrySet()) {
-            if(Thread.currentThread().isInterrupted()){
-                System.out.println("线程请求中断...");
-                return;
-            }
+            if (threadInterrupt("", false)) return;
+
             Pattern.CharProperty root = (Pattern.CharProperty) entry.getKey();
             generateBigCharSet(root);
         }
@@ -2326,10 +2194,8 @@ public class Analyzer {
         Set<Integer> tmp;
 
         for (Map.Entry<Pattern.Node, Set<Integer>> entry : bigCharSetMap.entrySet()) {
-            if(Thread.currentThread().isInterrupted()){
-                System.out.println("线程请求中断...");
-                return;
-            }
+            if (threadInterrupt("", false)) return;
+
             if (entry.getKey() == root) {
                 // 加入root和fullSmallCharSet的交集
                 // set2&set8
@@ -2350,10 +2216,8 @@ public class Analyzer {
                 tmp.retainAll(entry.getValue());
                 tmp.removeAll(fullSmallCharSet);
                 for (Map.Entry<Pattern.Node, Set<Integer>> entry_ : bigCharSetMap.entrySet()) {
-                    if(Thread.currentThread().isInterrupted()){
-                        System.out.println("线程请求中断...");
-                        return;
-                    }
+                    if (threadInterrupt("", false)) return;
+
                     if (entry_.getKey() == root || entry_.getKey() == entry.getKey()) {
                         continue;
                     } else {
@@ -2394,10 +2258,8 @@ public class Analyzer {
      * @return 遇到实际字符返回false，可空返回true
      */
     private boolean searchLookaroundAtLast(LeafNode root) {
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return false;
-        }
+        if (threadInterrupt("", false)) return false;
+
         if (root == null || root.actualNode instanceof Pattern.CharProperty || root.actualNode instanceof Pattern.SliceNode || root.actualNode instanceof Pattern.BnM) {
             return false;
         }
@@ -2445,10 +2307,8 @@ public class Analyzer {
      * @return "实际字符"开头返回0，遇到可空字符返回2，遇到分支返回1
      */
     private int branchAtFirst (LeafNode root) {
-        if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
-            return 0;
-        }
+        if (threadInterrupt("", false)) return 0;
+
         if (root.actualNode instanceof Pattern.CharProperty || root.actualNode instanceof Pattern.SliceNode || root.actualNode instanceof Pattern.BnM) {
             return 0;
         }
