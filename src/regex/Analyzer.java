@@ -24,8 +24,8 @@ public class Analyzer {
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
-    private final boolean POA = true;
-    // private final boolean POA = false;
+    // private final boolean POA = true;
+    private final boolean POA = false;
     // private final boolean SLQ = true;
     private final boolean SLQ = false;
 
@@ -41,8 +41,8 @@ public class Analyzer {
     // private final boolean debugStuck = true;
     private final boolean debugStuck = false;
 
-    private final boolean debugFirstAndLast = true;
-    // private final boolean debugFirstAndLast = false;
+    // private final boolean debugFirstAndLast = true;
+    private final boolean debugFirstAndLast = false;
 
     private final boolean realTest = true;
     // private final boolean realTest = false;
@@ -124,8 +124,8 @@ public class Analyzer {
         // 对新树生成所有路径
         // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
         scanAllPath(root, false);
-        // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
-        // printTree(root, true);
+        System.out.println("\n\n-----------------------\n\n\nflowchart TD");
+        printTree(root, true);
         // 记录结束时间
         endTime = System.currentTimeMillis();
         System.out.println("id:"+id+",scanAllPath cost time: " + (endTime - startTime) + "ms");
@@ -1001,8 +1001,8 @@ public class Analyzer {
             this.last = new HashSet<>();
         }
 
-        LeafNode copy(LeafNode father) {
-            LeafNode result = new LeafNode(new HashSet<>(), actualNode);
+        LeafNode copy(LeafNode father, Set<Integer> groupNums) {
+            LeafNode result = new LeafNode(groupNums, actualNode);
             // result.paths = new ArrayList<>(this.paths);
             result.father = father;
             if (this.pathGenerated) {
@@ -1319,8 +1319,8 @@ public class Analyzer {
         }
 
         @Override
-        ConnectNode copy(LeafNode father) {
-            ConnectNode result =  new ConnectNode(null, null, new HashSet<>());
+        ConnectNode copy(LeafNode father, Set<Integer> groupNums) {
+            ConnectNode result =  new ConnectNode(null, null, groupNums);
             result.father = father;
             return result;
         }
@@ -1428,8 +1428,8 @@ public class Analyzer {
         }
 
         @Override
-        BranchNode copy(LeafNode father) {
-            BranchNode result =  new BranchNode(this.actualNode, new HashSet<>());
+        BranchNode copy(LeafNode father, Set<Integer> groupNums) {
+            BranchNode result =  new BranchNode(this.actualNode, groupNums);
             result.father = father;
             return result;
         }
@@ -1555,8 +1555,8 @@ public class Analyzer {
         }
 
         @Override
-        LoopNode copy(LeafNode father) {
-            LoopNode result =  new LoopNode(cmin, cmax, null, this.actualNode, new HashSet<>());
+        LoopNode copy(LeafNode father, Set<Integer> groupNums) {
+            LoopNode result =  new LoopNode(cmin, cmax, null, this.actualNode, groupNums);
             result.father = father;
             return result;
         }
@@ -1638,8 +1638,8 @@ public class Analyzer {
         }
 
         @Override
-        LookaroundNode copy(LeafNode father) {
-            LookaroundNode result =  new LookaroundNode(null, type, new HashSet<>(), this.actualNode);
+        LookaroundNode copy(LeafNode father, Set<Integer> groupNums) {
+            LookaroundNode result =  new LookaroundNode(null, type, groupNums, this.actualNode);
             result.father = father;
             return result;
         }
@@ -1667,8 +1667,8 @@ public class Analyzer {
         }
 
         @Override
-        BackRefNode copy(LeafNode father) {
-            BackRefNode result = new BackRefNode(groupIndex, new HashSet<>(), this.actualNode);
+        BackRefNode copy(LeafNode father, Set<Integer> groupNums) {
+            BackRefNode result = new BackRefNode(groupIndex, groupNums, this.actualNode);
             result.father = father;
             return result;
         }
@@ -1946,7 +1946,7 @@ public class Analyzer {
         for (LeafNode node : backRefNodes) {
             int localIndex = groupIndex2LocalIndex.get(((BackRefNode)node).groupIndex);
             LeafNode rawGroupRoot = groupStartNodesMap.get(localIndex);
-            ((LinkNode)node.father).replaceChild(node, copyGroupTree(rawGroupRoot, groupIndex2LocalIndex.get(((BackRefNode)node).groupIndex), node.father));
+            ((LinkNode)node.father).replaceChild(node, copyGroupTree(rawGroupRoot, groupIndex2LocalIndex.get(((BackRefNode)node).groupIndex), node.father, node.groupNums));
         }
 
         if (threadInterrupt("", false)) return null;
@@ -1992,9 +1992,10 @@ public class Analyzer {
      * @param root 带有特定组号的树的根节点
      * @param localIndex 组号
      * @param father 新节点的父节点
+     * @param groupNums 被替换的原节点的组号，要被替换到新的树中
      * @return 拷贝出来的新节点
      */
-    private LeafNode copyGroupTree(LeafNode root, int localIndex, LeafNode father) {
+    private LeafNode copyGroupTree(LeafNode root, int localIndex, LeafNode father, Set<Integer> groupNums) {
         if (threadInterrupt("", false)) return null;
 
         LeafNode result = null;
@@ -2002,21 +2003,21 @@ public class Analyzer {
             return null;
         }
         else if (root.groupNums.contains(localIndex)) {
-            result = root.copy(father);
+            result = root.copy(father, groupNums);
             if (root instanceof Analyzer.ConnectNode) {
-                ((Analyzer.ConnectNode)result).left = copyGroupTree(((ConnectNode)root).left, localIndex, result);
-                ((Analyzer.ConnectNode)result).left = copyGroupTree(((ConnectNode)root).left, localIndex, result);
+                ((Analyzer.ConnectNode)result).left = copyGroupTree(((ConnectNode)root).left, localIndex, result, groupNums);
+                ((Analyzer.ConnectNode)result).left = copyGroupTree(((ConnectNode)root).left, localIndex, result, groupNums);
             }
             else if (root instanceof Analyzer.BranchNode) {
                 for (LeafNode child : ((BranchNode)root).children) {
-                    ((BranchNode)result).children.add(copyGroupTree(child, localIndex, result));
+                    ((BranchNode)result).children.add(copyGroupTree(child, localIndex, result, groupNums));
                 }
             }
             else if (root instanceof Analyzer.LoopNode) {
-                ((LoopNode)result).atom = copyGroupTree(((LoopNode)root).atom, localIndex, result);
+                ((LoopNode)result).atom = copyGroupTree(((LoopNode)root).atom, localIndex, result, groupNums);
             }
             else if (root instanceof Analyzer.LookaroundNode) {
-                ((LookaroundNode)result).atom = copyGroupTree(((LookaroundNode)root).atom, localIndex, result);
+                ((LookaroundNode)result).atom = copyGroupTree(((LookaroundNode)root).atom, localIndex, result, groupNums);
             }
         }
         else {
