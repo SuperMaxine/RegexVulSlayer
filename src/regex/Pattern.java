@@ -3774,6 +3774,9 @@ loop:   for(int x=0, offset=0; x<nCodePoints; x++, offset+=len) {
      */
     static abstract class CharProperty extends Node {
         public Set<Integer> charSet = new HashSet<>();
+        public Set<Integer> charSet_0_128 = new HashSet<>();
+        public Set<Integer> charSet_128_256 = new HashSet<>();
+        public Set<Integer> charSet_256_65536 = new HashSet<>();
         public String selfRegex = "";
         abstract boolean isSatisfiedBy(int ch);
         CharProperty complement() {

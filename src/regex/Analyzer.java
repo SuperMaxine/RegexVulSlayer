@@ -15,12 +15,25 @@ import java.util.*;
  */
 public class Analyzer {
     private static final Pattern DotP = Pattern.compile(".");
-    private static final Pattern BoundP = Pattern.compile("\\b");
+    // private static final Pattern BoundP = Pattern.compile("\\b");
     private static final Pattern SpaceP = Pattern.compile("\\s");
     private static final Pattern noneSpaceP = Pattern.compile("\\S");
     private static final Pattern wordP = Pattern.compile("\\w");
     private static final Pattern AllP = Pattern.compile("[\\s\\S]");
     private static final Pattern noneWordP = Pattern.compile("\\W");
+    private static final Pattern DefaultSmallCharSetP = Pattern.compile("[0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!\\\"#$%&'()*+,-./:;>=<?@\\[\\]^_`{|}~ \\t\\n\\r]");
+    //获取特定类别的节点set
+    Set<Integer> Dot;
+    // Set<Integer> Bound;
+    Set<Integer> Space;
+    Set<Integer> SpaceFull;
+    Set<Integer> noneSpace;
+    Set<Integer> word;
+    Set<Integer> All;
+    Set<Integer> noneWord;
+
+    boolean need256 = false;
+    boolean need65536 = false;
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
@@ -35,8 +48,8 @@ public class Analyzer {
     // private final boolean debugStep = true;
     private final boolean debugStep = false;
 
-    // private final boolean debugRegex = true;
-    private final boolean debugRegex = false;
+    private final boolean debugRegex = true;
+    // private final boolean debugRegex = false;
 
     // private final boolean debugStuck = true;
     private final boolean debugStuck = false;
@@ -44,14 +57,12 @@ public class Analyzer {
     // private final boolean debugFirstAndLast = true;
     private final boolean debugFirstAndLast = false;
 
-    private final boolean realTest = true;
-    // private final boolean realTest = false;
+    // private final boolean realTest = true;
+    private final boolean realTest = false;
 
     // private final boolean SpaceFullSet = true;
     private final boolean SpaceFullSet = false;
 
-    private final int charSetRange = 65536;
-    // private final int charSetRange = 256;
 
     long startTime;
     long endTime;
@@ -59,7 +70,8 @@ public class Analyzer {
     String regex;
     int maxLength;
     private Set<Integer> fullSmallCharSet;
-    private Map<Pattern.Node, Set<Integer>> bigCharSetMap;
+    private Map<Pattern.CharProperty, Set<Integer>> bigCharSetMap;
+    private HashSet<Pattern.CharProperty> charPropertySet;
     private Pattern4Search testPattern = null;
     private redosPattern testPattern4Search = null;
     public boolean attackable = false;
@@ -85,6 +97,7 @@ public class Analyzer {
         this.maxLength = maxLength;
         fullSmallCharSet = new HashSet<>();
         bigCharSetMap = new HashMap<>();
+        charPropertySet = new HashSet<>();
         if (SLQ) testPattern4Search = redosPattern.compile(regex);
         else testPattern = Pattern4Search.compile(regex);
 
@@ -110,10 +123,7 @@ public class Analyzer {
 
         // 对原始树进行优化，生成新树
         root = buildFinalTree(root);
-        // 生成所有字符集，生成字符集只改变了Pattern.Node的charSet，并没有改变tree中LeafNode的path，还需注意
-        Pattern p  = Pattern.compile("[0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!\\\"#$%&'()*+,-./:;<=>?@\\[\\]^_`{|}~ \\t\\n\\r]");
-        generateFullSmallCharSet((Pattern.CharProperty) p.root.next);
-        generateAllBigCharSet();
+
         // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
         // printTree(root, true);
         if (threadInterrupt("", false)) return;
@@ -121,9 +131,13 @@ public class Analyzer {
         endTime = System.currentTimeMillis();
         System.out.println("id:"+id+",Build tree cost time: " + (endTime - startTime) + "ms");
         startTime = endTime;
-        // 对新树生成所有路径
-        // 生成路径操作一定要在确认所有字符集都生成完毕之后再进行
+
+        generateStandardCharSets();
+        generateAllCharSet();
         scanAllPath(root, false);
+        generateAllBigCharSet();
+
+        generateAllPath(root);
         System.out.println("\n\n-----------------------\n\n\nflowchart TD");
         printTree(root, true);
         // 记录结束时间
@@ -570,6 +584,35 @@ public class Analyzer {
                 e.printStackTrace();
             }
         }
+    }
+
+    void generateStandardCharSets(){
+        //获取特定类别的节点set
+        Dot = getNodeCharSet((Pattern.CharProperty) DotP.root.next);
+        // Bound = getNodeCharSet((Pattern.CharProperty) BoundP.root.next);
+        Space = getNodeCharSet((Pattern.CharProperty) SpaceP.root.next);
+        SpaceFull = new HashSet<Integer>(){{
+            addAll(Space);
+            if (SpaceFullSet) {
+                add(0x00a0);
+                add(0x1680);
+                for (int i = 0x2000; i <= 0x200a; i++) {
+                    add(i);
+                }
+                add(0x2028);
+                add(0x2029);
+                add(0x202f);
+                add(0x205f);
+                add(0x3000);
+                add(0xfeff);
+            }
+        }};
+        noneSpace = getNodeCharSet((Pattern.CharProperty) noneSpaceP.root.next);
+        word = getNodeCharSet((Pattern.CharProperty) wordP.root.next);
+        All = getNodeCharSet((Pattern.CharProperty) AllP.root.next);
+        noneWord = getNodeCharSet((Pattern.CharProperty) noneWordP.root.next);
+
+        generateRawCharSet((Pattern.CharProperty) DefaultSmallCharSetP.root.next, false);
     }
 
     boolean threadInterrupt(String debugMsg, boolean debug) {
@@ -1029,18 +1072,18 @@ public class Analyzer {
             if (this.actualNode instanceof Pattern.CharProperty) {
                 Pattern.CharProperty cp = (Pattern.CharProperty) this.actualNode;
                 if (cp.charSet.size() != 0) {
-                    this.SelfRegex += "[";
                     if (setsEquals(cp.charSet, Dot)) this.SelfRegex += ".";
-                    else if (setsEquals(cp.charSet, Bound)) this.SelfRegex += "\\b";
+                    // else if (setsEquals(cp.charSet, Bound)) this.SelfRegex += "\\b";
                     else if (setsEquals(cp.charSet, SpaceFull)) this.SelfRegex += "\\s";
                     else if (setsEquals(cp.charSet, noneSpace)) this.SelfRegex += "\\S";
                     else if (setsEquals(cp.charSet, All)) this.SelfRegex += "\\s\\S";
                     else if (setsEquals(cp.charSet, word)) this.SelfRegex += "\\w";
                     else if (setsEquals(cp.charSet, noneWord)) this.SelfRegex += "\\W";
                     else {
+                        this.SelfRegex += "[";
                         this.SelfRegex += cp.selfRegex;
+                        this.SelfRegex += "]";
                     }
-                    this.SelfRegex += "]";
                 }
             }
             else if (this.actualNode instanceof Pattern.SliceNode) {
@@ -1888,6 +1931,10 @@ public class Analyzer {
                     id2childNodes.get(root.id).addAll(id2childNodes.get(((LookaroundNode) root).atom.id));
                 }
             }
+            else {
+                // LeafNode
+                root.generatePaths();
+            }
 
             root.generateSelfRegex();
             root.generateFistAndLast();
@@ -2108,16 +2155,10 @@ public class Analyzer {
 
         // 具有实际字符意义
         else if (root instanceof Pattern.CharProperty){
-            generateFullSmallCharSet((Pattern.CharProperty) root);
+            // generateFullSmallCharSet((Pattern.CharProperty) root);
+            generateRawCharSet((Pattern.CharProperty) root, true);
 
             me = new LeafNode(groupNums, root);
-
-            ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
-            if (((Pattern.CharProperty) root).charSet.size() > 0) {
-                tmpPath.add(((Pattern.CharProperty) root).charSet);
-            }
-            me.paths.add(tmpPath);
-            me.pathGenerated = true;
 
             brother = buildTree(root.next, groupNums);
         }
@@ -2126,6 +2167,8 @@ public class Analyzer {
             ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
             for (int i : ((Pattern.SliceNode) root).buffer) {
                 fullSmallCharSet.add(i);
+                if (i > 256) need256 = true;
+                if (i > 65536) need65536 = true;
 
                 Set<Integer> tmpCharSet = new HashSet<>();
                 tmpCharSet.add(i);
@@ -2141,6 +2184,8 @@ public class Analyzer {
             ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
             for (int i : ((Pattern.BnM) root).buffer) {
                 fullSmallCharSet.add(i);
+                if (i > 256) need256 = true;
+                if (i > 65536) need65536 = true;
 
                 Set<Integer> tmpCharSet = new HashSet<>();
                 tmpCharSet.add(i);
@@ -2207,6 +2252,7 @@ public class Analyzer {
         Set<Integer> charSet = new HashSet<>();
         root.selfRegex = "";
         int count = 0;
+        int charSetRange = (need65536 ? 65536 : (need256 ? 256 : 128));
         // for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
         for (int i = 0; i < charSetRange && !Thread.currentThread().isInterrupted(); i++) {
             if (root.isSatisfiedBy(i)) {
@@ -2238,12 +2284,6 @@ public class Analyzer {
             root.selfRegex += "-" + "\\x"+hex;
         }
 
-        if (setsEquals(charSet, Space)){
-            root.charSet.addAll(SpaceFull);
-        }
-        else {
-            root.charSet.addAll(charSet);
-        }
 
         if (charSet.size() < 128) {
             fullSmallCharSet.addAll(charSet);
@@ -2257,7 +2297,7 @@ public class Analyzer {
      */
     private void generateAllBigCharSet() {
         // 遍历化bigCharSetMap节点
-        for (Map.Entry<Pattern.Node, Set<Integer>> entry : bigCharSetMap.entrySet()) {
+        for (Map.Entry<Pattern.CharProperty, Set<Integer>> entry : bigCharSetMap.entrySet()) {
             if (threadInterrupt("", false)) return;
 
             Pattern.CharProperty root = (Pattern.CharProperty) entry.getKey();
@@ -2271,25 +2311,40 @@ public class Analyzer {
      * @param root
      */
     private void generateBigCharSet(Pattern.CharProperty root) {
+        Random rand = new Random();
 
         if (bigCharSetMap.size() > 20) {
-            Set<Integer> charSet = new HashSet<>();
-            for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
-                if (root.isSatisfiedBy(i)) {
-                    charSet.add(i);
-                }
+            // Set<Integer> charSet = new HashSet<>();
+            // for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
+            //     if (root.isSatisfiedBy(i)) {
+            //         charSet.add(i);
+            //     }
+            // }
+            // root.charSet.addAll(charSet);
+
+            // 如果在新版charSet生成方式下总数还能超过128，那一定是需要256或65536的，直接加入和fullSmallCharSet的交集和10的其他的值
+            Set<Integer> charSet = bigCharSetMap.get(root);
+
+            Set<Integer> tmp = new HashSet<>(charSet);
+            tmp.retainAll(fullSmallCharSet);
+            root.charSet.addAll(tmp);
+
+            charSet.removeAll(tmp);
+
+            Integer[] arrayNumbers = charSet.toArray(new Integer[charSet.size()]);
+            for (int i = 0; i < 10; i++) {
+                int rndmNumber = rand.nextInt(bigCharSetMap.get(root).size());
+                root.charSet.add(arrayNumbers[rndmNumber]);
             }
-            root.charSet.addAll(charSet);
             return;
         }
 
-        Random rand = new Random();
         Set<Integer> result = new HashSet<>();
 
         // set2&set8
         Set<Integer> tmp;
 
-        for (Map.Entry<Pattern.Node, Set<Integer>> entry : bigCharSetMap.entrySet()) {
+        for (Map.Entry<Pattern.CharProperty, Set<Integer>> entry : bigCharSetMap.entrySet()) {
             if (threadInterrupt("", false)) return;
 
             if (entry.getKey() == root) {
@@ -2311,7 +2366,7 @@ public class Analyzer {
                 tmp = new HashSet<>(bigCharSetMap.get(root));
                 tmp.retainAll(entry.getValue());
                 tmp.removeAll(fullSmallCharSet);
-                for (Map.Entry<Pattern.Node, Set<Integer>> entry_ : bigCharSetMap.entrySet()) {
+                for (Map.Entry<Pattern.CharProperty, Set<Integer>> entry_ : bigCharSetMap.entrySet()) {
                     if (threadInterrupt("", false)) return;
 
                     if (entry_.getKey() == root || entry_.getKey() == entry.getKey()) {
@@ -2344,7 +2399,6 @@ public class Analyzer {
             result.add(iter.next());
         }
 
-        root.charSet = new HashSet<>();
         root.charSet.addAll(result);
     }
 
@@ -2512,30 +2566,6 @@ public class Analyzer {
         return result;
     }
 
-    //获取特定类别的节点set
-    Set<Integer> Dot = getNodeCharSet(DotP.root.next);
-    Set<Integer> Bound = getNodeCharSet(BoundP.root.next);
-    Set<Integer> Space = getNodeCharSet(SpaceP.root.next);
-    Set<Integer> SpaceFull = new HashSet<Integer>(){{
-        addAll(Space);
-        if (SpaceFullSet) {
-            add(0x00a0);
-            add(0x1680);
-            for (int i = 0x2000; i <= 0x200a; i++) {
-                add(i);
-            }
-            add(0x2028);
-            add(0x2029);
-            add(0x202f);
-            add(0x205f);
-            add(0x3000);
-            add(0xfeff);
-        }
-    }};
-    Set<Integer> noneSpace = getNodeCharSet(noneSpaceP.root.next);
-    Set<Integer> word = getNodeCharSet(wordP.root.next);
-    Set<Integer> All = getNodeCharSet(AllP.root.next);
-    Set<Integer> noneWord = getNodeCharSet(noneWordP.root.next);
     /**
      * 用来生成一条ArrayList<Set<Integer>>的路径的字符串
      * @param path ArrayList<Set<Integer>>格式的路径
@@ -2552,26 +2582,32 @@ public class Analyzer {
             if (indexP != 0) {
                 result += ",";
             }
-            result += "[";
             if (setsEquals(s, Dot)) {
                 result += ".";
-            } else if (setsEquals(s, Bound)) {
-                result += "\\b";
-            } else if (setsEquals(s, SpaceFull)) {
+            }
+            // else if (setsEquals(s, Bound)) {
+            //     result += "\\b";
+            // }
+            else if (setsEquals(s, SpaceFull)) {
                 result += "\\s";
-            } else if (setsEquals(s, noneSpace)) {
+            }
+            else if (setsEquals(s, noneSpace)) {
                 result += "\\S";
-            } else if (setsEquals(s, word)) {
+            }
+            else if (setsEquals(s, word)) {
                 result += "\\w";
-            } else if (setsEquals(s, All)) {
+            }
+            else if (setsEquals(s, All)) {
                 result += "\\s\\S";
-            } else if (s.size() > 20) {
+            }
+            else if (s.size() > 20) {
                 result += "size(" + s.size() + ")";
             }
             else {
+                result += "[";
                 result += printSet(s, mermaid);
+                result += "]";
             }
-            result += "]";
         }
         return result;
     }
@@ -2650,33 +2686,136 @@ public class Analyzer {
      * @param node CharProperty、Slice、BnM类型的字符节点
      * @return 所有出现在节点中的字符的集合
      */
-    private Set<Integer> getNodeCharSet(Pattern.Node node) {
-        if (node instanceof Pattern.CharProperty) {
-            if (((Pattern.CharProperty) node).charSet.size() == 0) {
-                generateRawCharSet((Pattern.CharProperty) node);
-            }
-            return ((Pattern.CharProperty) node).charSet;
-        } else if (node instanceof Pattern.SliceNode || node instanceof Pattern.BnM) {
-            Set<Integer> charSet = new HashSet<>();
-            for (int i : ((Pattern.SliceNode) node).buffer) {
-                charSet.add(i);
-            }
-            return charSet;
-        } else {
-            return null;
+    private Set<Integer> getNodeCharSet(Pattern.CharProperty node) {
+        if (node.charSet_0_128.size() == 0) {
+            generateRawCharSet(node, false);
         }
+        Set<Integer> tmp = new HashSet<>(node.charSet_0_128);
+        if (need256) tmp.addAll(node.charSet_128_256);
+        if (need65536) tmp.addAll(node.charSet_256_65536);
+        return tmp;
     }
 
     /**
-     * 生成原本应该被节点接受的全部字符集合
+     * 生成原本应该被节点接受的全部字符集合，并将其存入节点的charSet_0_128等属性中
+     * 同时生成selfRegex（selfRegex仅限256）
      * @param root CharProperty类型的节点
      */
-    private void generateRawCharSet(Pattern.CharProperty root) {
+    private void generateRawCharSet(Pattern.CharProperty root, boolean scan) {
         // 默认的处理方法
-        for (int i = 0; i < charSetRange && !Thread.currentThread().isInterrupted(); i++) {
+        root.selfRegex = "";
+        int count = 0;
+        for (int i = 0; i < 65536 && !Thread.currentThread().isInterrupted(); i++) {
             if (root.isSatisfiedBy(i)) {
-                root.charSet.add(i);
+                if (i < 128) root.charSet_0_128.add(i);
+                else if (i < 256) root.charSet_128_256.add(i);
+                else root.charSet_256_65536.add(i);
+
+                if (i < 256) {
+                    count++;
+                    if (count == 1) {
+                        String hex = Integer.toHexString(i);
+                        while (hex.length() < 2) {
+                            hex = "0" + hex;
+                        }
+                        root.selfRegex += "\\x" + hex;
+                    }
+                }
+            }
+            else if (i < 256) {
+                if (count > 1) {
+                    // root.selfRegex += "-" + ((i==34||i==91||i==92) ? "\\" : "") + (char) (i - 1);
+                    String hex = Integer.toHexString(i - 1);
+                    while (hex.length() < 2) {
+                        hex = "0" + hex;
+                    }
+                    root.selfRegex += "-" + "\\x"+hex;
+                }
+                count = 0;
             }
         }
+        if (count > 1) {
+            String hex = Integer.toHexString(255);
+            root.selfRegex += "-" + "\\x"+hex;
+        }
+
+        Set<Integer> charSet = new HashSet<>(root.charSet_0_128);
+        charSet.addAll(root.charSet_128_256);
+        charSet.addAll(root.charSet_256_65536);
+
+        if (charSet.size() < 128) {
+            fullSmallCharSet.addAll(charSet);
+        } else {
+            bigCharSetMap.put(root, charSet);
+        }
+
+        charPropertySet.add(root);
+
+        if (scan) {
+            // 排除Dot
+            if (charSet.size() == 65531)
+                if (!charSet.contains(10) && !charSet.contains(13) && !charSet.contains(133) && !charSet.contains(8232) && !charSet.contains(8233))
+                    return;
+
+            if (root.charSet_128_256.size() != 0 && root.charSet_128_256.size() != 128) need256 = true;
+            if (root.charSet_256_65536.size() != 0 && root.charSet_256_65536.size() != 65280) need65536 = true;
+        }
+    }
+
+    private void generateAllCharSet() {
+        // 现根据是否需要256位和65536位来清洗一遍bigCharSetMap和fullSmallCharSet
+        if (!(need256 && need65536)) {
+            Set<Integer> removeSet = new HashSet<>();
+            if (!need65536) {
+                for (int i = 256; i < 65536; i++) {
+                    removeSet.add(i);
+                }
+            }
+            if (!need256) {
+                for (int i = 128; i < 256; i++) {
+                    removeSet.add(i);
+                }
+            }
+
+            fullSmallCharSet.removeAll(removeSet);
+
+            // for (Pattern.CharProperty charProperty : bigCharSetMap.keySet()) {
+            //     bigCharSetMap.get(charProperty).removeAll(removeSet);
+            //     if (bigCharSetMap.get(charProperty).size() < 128) {
+            //         fullSmallCharSet.addAll(bigCharSetMap.get(charProperty));
+            //         bigCharSetMap.remove(charProperty);
+            //     }
+            // }
+
+            Iterator<Pattern.CharProperty> iterator = bigCharSetMap.keySet().iterator();
+            while(iterator.hasNext()){
+                Pattern.CharProperty integer = iterator.next();
+                bigCharSetMap.get(integer).removeAll(removeSet);
+                // 如果清洗后的集合变为小集合，则把这个节点从bigCharSetMap中移除
+                if (bigCharSetMap.get(integer).size() < 128) {
+                    fullSmallCharSet.addAll(bigCharSetMap.get(integer));
+                    iterator.remove();
+                }
+            }
+
+        }
+
+
+        for (Pattern.CharProperty charProperty : charPropertySet) {
+            if (bigCharSetMap.entrySet().contains(charProperty)) {
+                generateBigCharSet(charProperty);
+            }
+            else {
+                generateSmallCharSet(charProperty);
+            }
+        }
+    }
+
+    private void generateSmallCharSet(Pattern.CharProperty charProperty) {
+        Set<Integer> tmpSet = new HashSet<>(charProperty.charSet_0_128);
+        if (need256)  tmpSet.addAll(charProperty.charSet_128_256);
+        if (need65536) tmpSet.addAll(charProperty.charSet_256_65536);
+
+        charProperty.charSet.addAll(tmpSet);
     }
 }
