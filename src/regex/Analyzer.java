@@ -32,24 +32,21 @@ public class Analyzer {
     Set<Integer> All;
     Set<Integer> noneWord;
 
-    boolean need256 = false;
-    boolean need65536 = false;
-
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
     // private final boolean POA = true;
     private final boolean POA = false;
-    // private final boolean SLQ = true;
-    private final boolean SLQ = false;
+    private final boolean SLQ = true;
+    // private final boolean SLQ = false;
 
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
 
-    // private final boolean debugStep = true;
-    private final boolean debugStep = false;
+    private final boolean debugStep = true;
+    // private final boolean debugStep = false;
 
-    private final boolean debugRegex = true;
-    // private final boolean debugRegex = false;
+    // private final boolean debugRegex = true;
+    private final boolean debugRegex = false;
 
     // private final boolean debugStuck = true;
     private final boolean debugStuck = false;
@@ -57,8 +54,8 @@ public class Analyzer {
     // private final boolean debugFirstAndLast = true;
     private final boolean debugFirstAndLast = false;
 
-    // private final boolean realTest = true;
-    private final boolean realTest = false;
+    private final boolean realTest = true;
+    // private final boolean realTest = false;
 
     // private final boolean SpaceFullSet = true;
     private final boolean SpaceFullSet = false;
@@ -91,6 +88,14 @@ public class Analyzer {
     private Map<LeafNode, String> countingPreRegex;
     private int id;
     private Map<Integer, Set<Integer>> id2childNodes;
+
+
+    // 优化相关
+    // 自动字符集大小
+    boolean need256 = false;
+    boolean need65536 = false;
+    // 是否有特性决定枚举方式
+    boolean haveAdvancedFeatures = false;
 
     public Analyzer(String regex, int maxLength, int id) {
         this.regex = regex;
@@ -137,9 +142,9 @@ public class Analyzer {
         scanAllPath(root, false);
         generateAllBigCharSet();
 
-        generateAllPath(root);
-        System.out.println("\n\n-----------------------\n\n\nflowchart TD");
-        printTree(root, true);
+        // generateAllPath(root);
+        // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
+        // printTree(root, true);
         // 记录结束时间
         endTime = System.currentTimeMillis();
         System.out.println("id:"+id+",scanAllPath cost time: " + (endTime - startTime) + "ms");
@@ -963,7 +968,10 @@ public class Analyzer {
      */
     private class Enumerator {
         ArrayList<ArrayList<Integer>> path; // 把ArrayList<Set<Integer>>转换成ArrayList<ArrayList<Integer>>存储
+        ArrayList<ArrayList<Integer>> pathRand;
         ArrayList<Integer> indexs; // 路径中的每一位所遍历到的序号
+        Random rand;
+        int times; // 当前路径中已经遍历的次数
 
         public Enumerator(ArrayList<Set<Integer>> path) {
             this.indexs = new ArrayList<>();
@@ -972,9 +980,23 @@ public class Analyzer {
                 this.path.add(new ArrayList<>(path.get(i)));
                 this.indexs.add(0);
             }
+            if (!haveAdvancedFeatures) {
+                this.rand = new Random(System.currentTimeMillis());
+                pathRand = new ArrayList<>();
+                for (int i = 0; i < path.size() && !Thread.currentThread().isInterrupted(); i++) {
+                    pathRand.add(new ArrayList<>(path.get(i)));
+                }
+            }
+            this.times = 0;
         }
 
         public String next() {
+            times++;
+            if (haveAdvancedFeatures) return nextAdvanced();
+            else return nextNoAdvanced();
+        }
+
+        private String nextAdvanced() {
             String sb = "";
             for (int i = 0; i < path.size() && !Thread.currentThread().isInterrupted(); i++) {
                 int tmp = path.get(i).get(indexs.get(i));
@@ -1000,14 +1022,38 @@ public class Analyzer {
             return sb;
         }
 
-        public boolean hasNext() {
-            if (this.indexs.size() == 0) {
-                return false;
+        private String nextNoAdvanced() {
+            // 随机给出path的组合
+            String sb = "";
+            for (int i = 0; i < path.size() && !Thread.currentThread().isInterrupted(); i++) {
+                sb += getRandChar(i);
             }
-            int t1 = this.indexs.get(0);
-            int t2 = this.path.get(0).size();
-            boolean result = t1 < t2;
-            return result;
+            return sb;
+        }
+
+        private char getRandChar(int i) {
+            if (pathRand.get(i).size() == 0) {
+                pathRand.set(i, new ArrayList<>(path.get(i)));
+            }
+            int randIndex = rand.nextInt(pathRand.get(i).size());
+            int randChar = pathRand.get(i).get(randIndex);
+            pathRand.get(i).remove(randIndex);
+            return (char) randChar;
+        }
+
+        public boolean hasNext() {
+            if (haveAdvancedFeatures) {
+                if (this.indexs.size() == 0) {
+                    return false;
+                }
+                int t1 = this.indexs.get(0);
+                int t2 = this.path.get(0).size();
+                boolean result = t1 < t2;
+                return result;
+            }
+            else {
+                return this.times < 10;
+            }
         }
 
         public boolean Empty() {
@@ -2199,18 +2245,22 @@ public class Analyzer {
 
         // lookaround处理
         else if (root instanceof Pattern.Pos){
+            haveAdvancedFeatures = true;
             me = new LookaroundNode(buildTree(((Pattern.Pos)root).cond, groupNums), lookaroundType.Pos, groupNums, root);
             brother = buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.Neg){
+            haveAdvancedFeatures = true;
             me = new LookaroundNode(buildTree(((Pattern.Neg)root).cond, groupNums), lookaroundType.Neg, groupNums, root);
             brother = buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.Behind){
+            haveAdvancedFeatures = true;
             me = new LookaroundNode(buildTree(((Pattern.Behind)root).cond, groupNums), lookaroundType.Behind, groupNums, root);
             brother = buildTree(root.next, groupNums);
         }
         else if (root instanceof Pattern.NotBehind){
+            haveAdvancedFeatures = true;
             me = new LookaroundNode(buildTree(((Pattern.NotBehind)root).cond, groupNums), lookaroundType.NotBehind, groupNums, root);
             brother = buildTree(root.next, groupNums);
         }
@@ -2227,6 +2277,7 @@ public class Analyzer {
 
         // "\b"、"\B"
         else if (root instanceof Pattern.Bound) {
+            haveAdvancedFeatures = true;
             me = new WordBoundary(groupNums, ((Pattern.Bound) root).type, root);
             brother = buildTree(root.next, groupNums);
         }
