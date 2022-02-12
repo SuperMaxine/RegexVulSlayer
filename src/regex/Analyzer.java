@@ -42,14 +42,14 @@ public class Analyzer {
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
 
-    // private final boolean debugStep = true;
-    private final boolean debugStep = false;
+    private final boolean debugStep = true;
+    // private final boolean debugStep = false;
 
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    // private final boolean debugStuck = true;
-    private final boolean debugStuck = false;
+    private final boolean debugStuck = true;
+    // private final boolean debugStuck = false;
 
     // private final boolean debugFirstAndLast = true;
     private final boolean debugFirstAndLast = false;
@@ -864,10 +864,16 @@ public class Analyzer {
         if (preEnum.Empty()) {
             while (pumpEnum.hasNext() && !Thread.currentThread().isInterrupted()) {
                 String pump = pumpEnum.next();
-                double matchingStepCnt;
+                double matchingStepCnt = 0;
                 if (debugStep) System.out.println("pump:" + pump);
-                if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 1000000);
-                else matchingStepCnt = testPattern.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
+                try {
+                    if (type == VulType.SLQ)
+                        matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 1000000);
+                    else matchingStepCnt = testPattern.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
+                } catch (StackOverflowError e) {
+                    e.printStackTrace();
+                    matchingStepCnt = 1000001;
+                }
                 if (debugStep) System.out.println(matchingStepCnt);
                 if (matchingStepCnt > (SLQ?1e6:1e5)) {
                     attackMsg = "";
@@ -902,8 +908,13 @@ public class Analyzer {
                     String pump = pumpEnum.next();
                     double matchingStepCnt;
                     if (debugStep) System.out.println("pre:" + pre + "\npump:" + pump);
-                    if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 1000000);
-                    else matchingStepCnt = testPattern.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
+                    try {
+                        if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 1000000);
+                        else matchingStepCnt = testPattern.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
+                    } catch (StackOverflowError e) {
+                        e.printStackTrace();
+                        matchingStepCnt = 1000001;
+                    }
                     if (debugStep) System.out.println(matchingStepCnt);
                     if (matchingStepCnt > (SLQ?1e6:1e5)) {
                         attackMsg = "";
