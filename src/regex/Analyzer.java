@@ -42,8 +42,8 @@ public class Analyzer {
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
 
-    private final boolean debugStep = true;
-    // private final boolean debugStep = false;
+    // private final boolean debugStep = true;
+    private final boolean debugStep = false;
 
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
@@ -1052,7 +1052,7 @@ public class Analyzer {
                 return result;
             }
             else {
-                return this.times < 10;
+                return this.times < 1;
             }
         }
 
