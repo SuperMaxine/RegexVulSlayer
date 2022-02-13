@@ -9,6 +9,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * @author SuperMaxine
@@ -34,22 +36,22 @@ public class Analyzer {
 
     // private final boolean OneCouting = true;
     private final boolean OneCouting = false;
-    // private final boolean POA = true;
-    private final boolean POA = false;
-    private final boolean SLQ = true;
-    // private final boolean SLQ = false;
+    private final boolean POA = true;
+    // private final boolean POA = false;
+    // private final boolean SLQ = true;
+    private final boolean SLQ = false;
 
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
 
-    private final boolean debugStep = true;
-    // private final boolean debugStep = false;
+    // private final boolean debugStep = true;
+    private final boolean debugStep = false;
 
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    private final boolean debugStuck = true;
-    // private final boolean debugStuck = false;
+    // private final boolean debugStuck = true;
+    private final boolean debugStuck = false;
 
     // private final boolean debugFirstAndLast = true;
     private final boolean debugFirstAndLast = false;
@@ -96,6 +98,8 @@ public class Analyzer {
     boolean need65536 = false;
     // 是否有特性决定枚举方式
     boolean haveAdvancedFeatures = false;
+    // countingNode去除Dot
+    LeafNode DotNode = null;
 
     public Analyzer(String regex, int maxLength, int id) {
         this.regex = regex;
@@ -141,6 +145,7 @@ public class Analyzer {
         generateAllCharSet();
         scanAllPath(root, false);
         generateAllBigCharSet();
+        countingNodes.remove(DotNode);
 
         // generateAllPath(root);
         // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
@@ -225,353 +230,438 @@ public class Analyzer {
         }
 
         if (POA) {
+            final boolean[] getResult = {false};
+            ExecutorService executorService = Executors.newCachedThreadPool();
+
             for (int i = 0; i < countingNodes.size() && !Thread.currentThread().isInterrupted(); i++) {
                 for (int j = i + 1; j < countingNodes.size() && !Thread.currentThread().isInterrupted(); j++) {
                     LeafNode node1 = countingNodes.get(i);
                     LeafNode node2 = countingNodes.get(j);
 
-                    if (debugPath) attackMsg += "----------------------------------------------------------\nnode1(id:"+node1.id+") regex:\n"+node1.SelfRegex+"\nnode2(id:"+countingNodes.get(j).id+") regex:\n"+countingNodes.get(j).SelfRegex+"\n";
-                    // 判断嵌套、直接相邻，以及夹着内容相邻
-                    // 嵌套结构跳过不测
-                    if (isNode1ChildOfNode2(node1, node2) || isNode1ChildOfNode2(node2, node1)) continue;
+                    executorService.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            synchronized (countingPrePaths) {
+                                if (debugPath)
+                                    attackMsg += "----------------------------------------------------------\nnode1(id:" + node1.id + ") regex:\n" + node1.SelfRegex + "\nnode2(id:" + node2.id + ") regex:\n" + node2.SelfRegex + "\n";
 
-                    else {
-                        if (debugStuck) System.out.println("node1: " + node1.id + " node2: " + node2.id);
-                        // 找到两者的公共父节点，然后求出两者之间夹着的路径
-                        Pair<ArrayList<ArrayList<Set<Integer>>>, LeafNode> midPathsAndFrontNode = getMidAndFrontNode(node1, node2);
-                        if (midPathsAndFrontNode == null) continue;
 
-                        // ArrayList<ArrayList<Set<Integer>>> debugMidPaths = midPathsAndFrontNode.getKey();
+                                // 判断嵌套、直接相邻，以及夹着内容相邻
+                                // 嵌套结构跳过不测
+                                if (isNode1ChildOfNode2(node1, node2) || isNode1ChildOfNode2(node2, node1)) return;
 
-                        // 说明两者直接相邻
-                        if (midPathsAndFrontNode.getKey().size() == 0 || midPathsAndFrontNode.getKey().get(0).size() == 0) {
-                        // if (midPathsAndFrontNode.getKey().size() == 0) {
+                                else {
+                                    if (debugStuck) System.out.println("node1: " + node1.id + " node2: " + node2.id);
+                                    // 找到两者的公共父节点，然后求出两者之间夹着的路径
+                                    Pair<ArrayList<ArrayList<Set<Integer>>>, LeafNode> midPathsAndFrontNode = getMidAndFrontNode(node1, node2);
+                                    if (midPathsAndFrontNode == null) return;
 
-                            // 通过First和Last判断是否可以跳过
-                            Set<Integer> firstIntersection = new HashSet<>(setsIntersection(node1.first, node2.first));
-                            Set<Integer> lastIntersection = new HashSet<>(setsIntersection(node1.last, node2.last));
-                            if (firstIntersection.size() == 0 || lastIntersection.size() == 0) continue;
+                                    // ArrayList<ArrayList<Set<Integer>>> debugMidPaths = midPathsAndFrontNode.getKey();
 
-                            if (debugPath) attackMsg += "POA-Direct Adjacent:\nnode1 paths\n" + printPaths(node1.getPaths(), false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).getPaths(), false) + "\n\n";
-                            for (ArrayList<Set<Integer>> path1 : node1.getPaths()) {
-                                if (path1.size() == 0) continue;
+                                    // 说明两者直接相邻
+                                    if (midPathsAndFrontNode.getKey().size() == 0 || midPathsAndFrontNode.getKey().get(0).size() == 0) {
+                                        // if (midPathsAndFrontNode.getKey().size() == 0) {
 
-                                // 通过first和last判断是否可以跳过这条路径
-                                ArrayList<Set<Integer>> tmpPath = new ArrayList<>(path1);
-                                tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
-                                tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
-                                if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
-                                else path1 = tmpPath;
+                                        // 通过First和Last判断是否可以跳过
+                                        Set<Integer> firstIntersection = new HashSet<>(setsIntersection(node1.first, node2.first));
+                                        Set<Integer> lastIntersection = new HashSet<>(setsIntersection(node1.last, node2.last));
+                                        if (firstIntersection.size() == 0 || lastIntersection.size() == 0) return;
 
-                                for (ArrayList<Set<Integer>> path2 : node2.getPaths()) {
-                                    if (threadInterrupt("\nTraversing paths time out\n", true)) return;
-                                    if (path2.size() == 0 || path1.size() != path2.size()) continue;
+                                        if (debugPath)
+                                            attackMsg += "POA-Direct Adjacent:\nnode1 paths\n" + printPaths(node1.getPaths(), false) + "\nnode2 paths\n" + printPaths(node2.getPaths(), false) + "\n\n";
+                                        for (ArrayList<Set<Integer>> path1 : node1.getPaths()) {
+                                            if (path1.size() == 0) continue;
 
-                                    ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(path1, path2);
-                                    if (pumpPath.size() != 0) {
-                                        if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
-                                        if (realTest) {
-                                            if (countingPrePaths.get(midPathsAndFrontNode.getValue()) == null) {
-                                                ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
-                                                Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
-                                                    @Override
-                                                    public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                                        return o1.size() - o2.size();
+                                            // 通过first和last判断是否可以跳过这条路径
+                                            ArrayList<Set<Integer>> tmpPath = new ArrayList<>(path1);
+                                            tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
+                                            tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
+                                            if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0)
+                                                continue;
+                                            else path1 = tmpPath;
+
+                                            for (ArrayList<Set<Integer>> path2 : node2.getPaths()) {
+                                                if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+                                                if (path2.size() == 0 || path1.size() != path2.size()) continue;
+
+                                                ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(path1, path2);
+                                                if (pumpPath.size() != 0) {
+                                                    if (debugPath)
+                                                        attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
+                                                    if (realTest) {
+                                                        if (countingPrePaths.get(midPathsAndFrontNode.getValue()) == null) {
+                                                            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
+                                                            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                                                @Override
+                                                                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                                                    return o1.size() - o2.size();
+                                                                }
+                                                            });
+                                                            countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
+                                                        }
+                                                        for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
+                                                            if (Thread.currentThread().isInterrupted()) {
+                                                                System.out.println("线程请求中断...3");
+                                                                return;
+                                                            }
+                                                            Enumerator preEnum = new Enumerator(prePath);
+                                                            Enumerator pumpEnum = new Enumerator(pumpPath);
+                                                            if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) {
+                                                                getResult[0] = true;
+                                                                return;
+                                                            }
+                                                        }
                                                     }
-                                                });
-                                                countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
-                                            }
-                                            for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
-                                                if (Thread.currentThread().isInterrupted()) {
-                                                    System.out.println("线程请求中断...");
-                                                    return;
                                                 }
-                                                Enumerator preEnum = new Enumerator(prePath);
-                                                Enumerator pumpEnum = new Enumerator(pumpPath);
-                                                if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
                                             }
                                         }
                                     }
-                                }
-                            }
-                        }
-                        // 说明两者之间夹着内容，\w+0\d+
-                        else {
+                                    // 说明两者之间夹着内容，\w+0\d+
+                                    else {
 
-                            // 判断是否有路径可以跳过
-                            // 通过First和Last判断是否可以跳过
-                            Set<Integer> firstIntersection = new HashSet<>(setsIntersection(node1.first, node2.first));
-                            Set<Integer> lastIntersection = new HashSet<>(setsIntersection(node1.last, node2.last));
-                            if (firstIntersection.size() == 0 || lastIntersection.size() == 0) continue;
+                                        // 判断是否有路径可以跳过
+                                        // 通过First和Last判断是否可以跳过
+                                        Set<Integer> firstIntersection = new HashSet<>(setsIntersection(node1.first, node2.first));
+                                        Set<Integer> lastIntersection = new HashSet<>(setsIntersection(node1.last, node2.last));
+                                        if (firstIntersection.size() == 0 || lastIntersection.size() == 0) return;
 
-                            if (countingPrePaths.get(midPathsAndFrontNode.getValue()) == null) {
-                                ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
-                                Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
-                                    @Override
-                                    public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                        return o1.size() - o2.size();
-                                    }
-                                });
-                                countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
-                            }
-                            ArrayList<ArrayList<Set<Integer>>> prePaths = countingPrePaths.get(midPathsAndFrontNode.getValue());
-                            ArrayList<Set<Integer>> pumpPath;
-                            LeafNode frontNode = midPathsAndFrontNode.getValue();
-                            LeafNode backNode = node1 == midPathsAndFrontNode.getValue() ? node2 : node1;
-
-                            if (debugPath) attackMsg += "POA-Nested:\nnode1 paths\n" + printPaths(node1.getPaths(), false) + "\nmidPaths:\n" + printPaths(midPathsAndFrontNode.getKey(), false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).getPaths(), false)  + "\n";
-
-                            // 新方法判断
-                            for (ArrayList<Set<Integer>> path1 : frontNode.getPaths()) {
-                                if (path1.size() == 0) continue;
-                                // 通过first和last判断是否可以跳过这条路径
-                                ArrayList<Set<Integer>> tmpPath = new ArrayList<>(path1);
-                                tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
-                                tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
-                                if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
-                                else path1 = tmpPath;
-
-                                // if (setsIntersection(path1.get(0), firstIntersection).size() == 0 && setsIntersection(path1.get(path1.size() - 1), lastIntersection).size() == 0) continue;
-
-                                for (ArrayList<Set<Integer>> path3 : backNode.getPaths()) {
-                                    if (path3.size() == 0 || path3.size() != path1.size()) continue;
-                                    // 通过first和last判断是否可以跳过这条路径
-                                    // tmpPath = new ArrayList<>(path3);
-                                    // tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
-                                    // tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
-                                    // if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
-                                    // else
-                                    //     path3 = tmpPath;
-
-                                    ArrayList<Set<Integer>> overlap = getPathCompletelyOverLap(path1, path3);
-                                    if (overlap.size() == 0) continue;
-
-                                    for (ArrayList<Set<Integer>> path2 : midPathsAndFrontNode.getKey()) {
-                                        if (path2.size() == 0) continue;
-                                        if (path2.size() > overlap.size()) continue;
-                                        tmpPath = new ArrayList<>();
-                                        for (int k = 0; k < path2.size() && !Thread.currentThread().isInterrupted(); k++) {
-                                            Set<Integer> tmpCharSet = new HashSet<>(path2.get(k));
-                                            tmpCharSet.retainAll(overlap.get(k));
-                                            if (tmpCharSet.size() == 0) {
-                                                break;
-                                            } else {
-                                                tmpPath.add(tmpCharSet);
-                                            }
+                                        if (countingPrePaths.get(midPathsAndFrontNode.getValue()) == null) {
+                                            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
+                                            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                                @Override
+                                                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                                    return o1.size() - o2.size();
+                                                }
+                                            });
+                                            countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
                                         }
+                                        ArrayList<ArrayList<Set<Integer>>> prePaths = countingPrePaths.get(midPathsAndFrontNode.getValue());
+                                        ArrayList<Set<Integer>> pumpPath;
+                                        LeafNode frontNode = midPathsAndFrontNode.getValue();
+                                        LeafNode backNode = node1 == midPathsAndFrontNode.getValue() ? node2 : node1;
 
-                                        boolean needTest = false;
+                                        if (debugPath)
+                                            attackMsg += "POA-Nested:\nnode1 paths\n" + printPaths(node1.getPaths(), false) + "\nmidPaths:\n" + printPaths(midPathsAndFrontNode.getKey(), false) + "\nnode2 paths\n" + printPaths(node2.getPaths(), false) + "\n";
 
-                                        // 长度相等只有完全重叠一种可能
-                                        if (path2.size() == overlap.size()) {
-                                            // 说明r2和overlap完全重叠
-                                            if (tmpPath.size() == overlap.size()) {
-                                                needTest = true;
-                                            }
-                                        }
-                                        // 长度小于还可能是前缀或后缀
-                                        else {
-                                            // 说明r2是overLap的前缀
-                                            if (tmpPath.size() == path2.size()) {
-                                                needTest = true;
-                                            }
+                                        // 新方法判断
+                                        for (ArrayList<Set<Integer>> path1 : frontNode.getPaths()) {
+                                            if (path1.size() == 0) continue;
+                                            // 通过first和last判断是否可以跳过这条路径
+                                            ArrayList<Set<Integer>> tmpPath = new ArrayList<>(path1);
+                                            tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
+                                            tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
+                                            if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0)
+                                                continue;
+                                            else path1 = tmpPath;
 
-                                            if (!needTest) {
-                                                // r2是不是overLap的后缀需要重新测
-                                                tmpPath = new ArrayList<>();
-                                                int diff = overlap.size() - path2.size();
+                                            // if (setsIntersection(path1.get(0), firstIntersection).size() == 0 && setsIntersection(path1.get(path1.size() - 1), lastIntersection).size() == 0) continue;
+
+                                            for (ArrayList<Set<Integer>> path3 : backNode.getPaths()) {
+                                                if (path3.size() == 0 || path3.size() != path1.size()) continue;
+                                                // 通过first和last判断是否可以跳过这条路径
+                                                // tmpPath = new ArrayList<>(path3);
+                                                // tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
+                                                // tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
+                                                // if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
+                                                // else
+                                                //     path3 = tmpPath;
+
+                                                ArrayList<Set<Integer>> overlap = getPathCompletelyOverLap(path1, path3);
+                                                if (overlap.size() == 0) continue;
+
+                                                for (ArrayList<Set<Integer>> path2 : midPathsAndFrontNode.getKey()) {
+                                                    if (path2.size() == 0) continue;
+                                                    if (path2.size() > overlap.size()) continue;
+                                                    tmpPath = new ArrayList<>();
+                                                    for (int k = 0; k < path2.size() && !Thread.currentThread().isInterrupted(); k++) {
+                                                        Set<Integer> tmpCharSet = new HashSet<>(path2.get(k));
+                                                        tmpCharSet.retainAll(overlap.get(k));
+                                                        if (tmpCharSet.size() == 0) {
+                                                            break;
+                                                        }
+                                                        else {
+                                                            tmpPath.add(tmpCharSet);
+                                                        }
+                                                    }
+
+                                                    boolean needTest = false;
+
+                                                    // 长度相等只有完全重叠一种可能
+                                                    if (path2.size() == overlap.size()) {
+                                                        // 说明r2和overlap完全重叠
+                                                        if (tmpPath.size() == overlap.size()) {
+                                                            needTest = true;
+                                                        }
+                                                    }
+                                                    // 长度小于还可能是前缀或后缀
+                                                    else {
+                                                        // 说明r2是overLap的前缀
+                                                        if (tmpPath.size() == path2.size()) {
+                                                            needTest = true;
+                                                        }
+
+                                                        if (!needTest) {
+                                                            // r2是不是overLap的后缀需要重新测
+                                                            tmpPath = new ArrayList<>();
+                                                            int diff = overlap.size() - path2.size();
                                                 /*
                                                 0 1 2 3 4 5 size = 6
                                                       0 1 2 size = 3
 
                                                  */
-                                                for (int k = overlap.size() - 1; k >= diff && !Thread.currentThread().isInterrupted(); k--) {
-                                                    Set<Integer> tmpCharSet = new HashSet<>(overlap.get(k));
-                                                    tmpCharSet.retainAll(path2.get(k-diff));
-                                                    if (tmpCharSet.size() == 0) {
-                                                        break;
+                                                            for (int k = overlap.size() - 1; k >= diff && !Thread.currentThread().isInterrupted(); k--) {
+                                                                Set<Integer> tmpCharSet = new HashSet<>(overlap.get(k));
+                                                                tmpCharSet.retainAll(path2.get(k - diff));
+                                                                if (tmpCharSet.size() == 0) {
+                                                                    break;
+                                                                }
+                                                                else {
+                                                                    tmpPath.add(tmpCharSet);
+                                                                }
+                                                            }
+                                                            // 说明r2是overLap的后缀
+                                                            if (tmpPath.size() == path2.size()) {
+                                                                needTest = true;
+                                                            }
+                                                        }
+
                                                     }
-                                                    else {
-                                                        tmpPath.add(tmpCharSet);
+
+                                                    if (needTest) {
+                                                        for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                                            if (threadInterrupt("", false)) return;
+
+                                                            Enumerator preEnum = new Enumerator(prePath);
+                                                            Enumerator pumpEnum = new Enumerator(overlap);
+                                                            if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) {
+                                                                getResult[0] = true;
+                                                                return;
+                                                            }
+                                                        }
                                                     }
                                                 }
-                                                // 说明r2是overLap的后缀
-                                                if (tmpPath.size() == path2.size()) {
-                                                    needTest = true;
-                                                }
-                                            }
-
-                                        }
-
-                                        if (needTest) {
-                                            for (ArrayList<Set<Integer>> prePath : prePaths) {
-                                                if (threadInterrupt("", false)) return;
-
-                                                Enumerator preEnum = new Enumerator(prePath);
-                                                Enumerator pumpEnum = new Enumerator(overlap);
-                                                if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
                                             }
                                         }
+
+                                        // // \w+0 vs \d+
+                                        // for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.getPaths(), midPathsAndFrontNode.getKey())) {
+                                        //     if (path1.size() == 0) continue;
+                                        //     for (ArrayList<Set<Integer>> path2 : backNode.getPaths()) {
+                                        //         if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+                                        //         if (path2.size() == 0 || path1.size() != path2.size()) continue;
+                                        //
+                                        //         pumpPath = getPathCompletelyOverLap(path1, path2);
+                                        //         if (pumpPath.size() != 0) {
+                                        //             if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
+                                        //             if (realTest) {
+                                        //                 for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                        //                     if (threadInterrupt("", false)) return;
+                                        //
+                                        //                     Enumerator preEnum = new Enumerator(prePath);
+                                        //                     Enumerator pumpEnum = new Enumerator(pumpPath);
+                                        //                     if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
+                                        //                 }
+                                        //             }
+                                        //         }
+                                        //     }
+                                        // }
+                                        //
+                                        // // \w+ vs 0\d+
+                                        // for (ArrayList<Set<Integer>> path1 : splicePath(midPathsAndFrontNode.getKey(), backNode.getPaths())) {
+                                        //     if (path1.size() == 0) continue;
+                                        //     for (ArrayList<Set<Integer>> path2 : frontNode.getPaths()) {
+                                        //         if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+                                        //         if (path2.size() == 0 || path1.size() != path2.size()) continue;
+                                        //
+                                        //         pumpPath = getPathCompletelyOverLap(path1, path2);
+                                        //         if (pumpPath.size() != 0) {
+                                        //             if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
+                                        //             if (realTest) {
+                                        //                 for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                        //                     if (threadInterrupt("", false)) return;
+                                        //
+                                        //                     Enumerator preEnum = new Enumerator(prePath);
+                                        //                     Enumerator pumpEnum = new Enumerator(pumpPath);
+                                        //                     if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
+                                        //                 }
+                                        //             }
+                                        //         }
+                                        //     }
+                                        // }
                                     }
                                 }
                             }
-
-                            // // \w+0 vs \d+
-                            // for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.getPaths(), midPathsAndFrontNode.getKey())) {
-                            //     if (path1.size() == 0) continue;
-                            //     for (ArrayList<Set<Integer>> path2 : backNode.getPaths()) {
-                            //         if (threadInterrupt("\nTraversing paths time out\n", true)) return;
-                            //         if (path2.size() == 0 || path1.size() != path2.size()) continue;
-                            //
-                            //         pumpPath = getPathCompletelyOverLap(path1, path2);
-                            //         if (pumpPath.size() != 0) {
-                            //             if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
-                            //             if (realTest) {
-                            //                 for (ArrayList<Set<Integer>> prePath : prePaths) {
-                            //                     if (threadInterrupt("", false)) return;
-                            //
-                            //                     Enumerator preEnum = new Enumerator(prePath);
-                            //                     Enumerator pumpEnum = new Enumerator(pumpPath);
-                            //                     if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
-                            //                 }
-                            //             }
-                            //         }
-                            //     }
-                            // }
-                            //
-                            // // \w+ vs 0\d+
-                            // for (ArrayList<Set<Integer>> path1 : splicePath(midPathsAndFrontNode.getKey(), backNode.getPaths())) {
-                            //     if (path1.size() == 0) continue;
-                            //     for (ArrayList<Set<Integer>> path2 : frontNode.getPaths()) {
-                            //         if (threadInterrupt("\nTraversing paths time out\n", true)) return;
-                            //         if (path2.size() == 0 || path1.size() != path2.size()) continue;
-                            //
-                            //         pumpPath = getPathCompletelyOverLap(path1, path2);
-                            //         if (pumpPath.size() != 0) {
-                            //             if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
-                            //             if (realTest) {
-                            //                 for (ArrayList<Set<Integer>> prePath : prePaths) {
-                            //                     if (threadInterrupt("", false)) return;
-                            //
-                            //                     Enumerator preEnum = new Enumerator(prePath);
-                            //                     Enumerator pumpEnum = new Enumerator(pumpPath);
-                            //                     if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
-                            //                 }
-                            //             }
-                            //         }
-                            //     }
-                            // }
                         }
-                    }
+                    });
                 }
             }
+
+            while(!getResult[0] && !Thread.currentThread().isInterrupted()) {
+            {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    // e.printStackTrace();
+                    System.out.println("线程请求中断...1");
+                }
+            }
+
+            // 停止executorService中的所有线程，并销毁executorService
+            executorService.shutdownNow();
+
+            System.out.println("[*] POA finished");
         }
 
         if (threadInterrupt("\nTraversing paths time out\n", true)) return;
 
         if (SLQ) {
-            Enumerator preEnum = new Enumerator(new ArrayList<>());
-            for (LeafNode node : countingNodes) {
-                if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
-                if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+            final boolean[] getResult = {false};
+            ExecutorService executorService = Executors.newCachedThreadPool();
 
-                // 如果cmax小于100或后缀可空，则不需要检查
-                if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) continue;
-                // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
-                if (debugPath) attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.getPaths(), false) +"\n";
-                if (haveEmptyBeginning(node)) {
-                    if (debugPath) attackMsg += "SLQ1:\npump paths\n" + printPaths(node.getPaths(), false) + "\n";
-                    if (realTest) {
-                        if (countingPrePaths.get(node) == null) {
-                            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
-                            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
-                                @Override
-                                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                    return o1.size() - o2.size();
-                                }
-                            });
-                            countingPrePaths.put(node, prePaths);
-                        }
-                        if (countingPrePaths.get(node).size() == 0) {
-                            for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
-                                if (Thread.currentThread().isInterrupted()) {
-                                    System.out.println("线程请求中断...");
-                                    return;
-                                }
-                                Enumerator pumpEnum = new Enumerator(pumpPath);
-                                if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
-                            }
-                        }
-                        else {
-                            for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
-                                if (Thread.currentThread().isInterrupted()) {
-                                    System.out.println("线程请求中断...");
-                                    return;
-                                }
-                                preEnum = new Enumerator(prePath);
-                                for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
-                                    if (Thread.currentThread().isInterrupted()) {
-                                        System.out.println("线程请求中断...");
-                                        return;
-                                    }
-                                    Enumerator pumpEnum = new Enumerator(pumpPath);
-                                    if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
-                                }
-                            }
-                        }
-                    }
-                }
-                else {
-                    if (countingPrePaths.get(node) == null) {
-                        ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
-                        Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
-                            @Override
-                            public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                return o1.size() - o2.size();
-                            }
-                        });
-                        countingPrePaths.put(node, prePaths);
-                    }
-                    // SLQ2：counting开头不可空，判断前缀是否是中缀的子串，如果有重叠，测试""+(中缀&前缀）*n+"\b\n\b"
-                    for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
-                        for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+            // Collections.sort((countingNodes), new Comparator<LeafNode>() {
+            //     @Override
+            //     public int compare(LeafNode o1, LeafNode o2) {
+            //         // return id2childNodes.get(o1.id).size() - id2childNodes.get(o2.id).size();
+            //         return o2.id - o1.id;
+            //     }
+            // });
+
+            for (LeafNode node : countingNodes) {
+                if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+                executorService.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        synchronized (countingPrePaths) {
+                            Enumerator preEnum = new Enumerator(new ArrayList<>());
+                            if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
                             if (threadInterrupt("\nTraversing paths time out\n", true)) return;
 
-                            if (prePath.size() == 0) continue;
-                            // if (isPath2InPath1(pumpPath, prePath)) {
-                            //     Enumerator pumpEnum = new Enumerator(pumpPath);
-                            //     System.out.println("pre:");
-                            //     System.out.println(printPath(prePath));
-                            //     System.out.println("pump:");
-                            //     System.out.println(printPath(pumpPath));
-                            //     if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
-                            //     System.out.println("\n----------\n");
-                            // }
-
-                            ArrayList<ArrayList<Set<Integer>>> pumpPaths = new ArrayList<>();
-                            if (isPath2InPath1_returnPaths(pumpPath, prePath, pumpPaths)) {
-                                if (debugPath)  attackMsg += "SLQ2" + "\n" + "pre:" + "\n" + printPath(prePath, false) + "\n" + "pump:" + "\n" + printPath(pumpPath, false) + "\n"+ "pumpPaths:" + "\n" + printPaths(pumpPaths, false) + "\n";
+                            // 如果cmax小于100或后缀可空，则不需要检查
+                            if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) return;
+                            // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
+                            if (debugPath)
+                                attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.getPaths(), false) + "\n";
+                            if (haveEmptyBeginning(node)) {
+                                if (debugPath)
+                                    attackMsg += "SLQ1:\npump paths\n" + printPaths(node.getPaths(), false) + "\n";
                                 if (realTest) {
-                                    for (ArrayList<Set<Integer>> pumpPath_ : pumpPaths) {
-                                        if (Thread.currentThread().isInterrupted()) {
-                                            System.out.println("线程请求中断...");
-                                            return;
+                                    if (countingPrePaths.get(node) == null) {
+                                        ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+                                        Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                            @Override
+                                            public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                                return o1.size() - o2.size();
+                                            }
+                                        });
+                                        countingPrePaths.put(node, prePaths);
+                                    }
+                                    if (countingPrePaths.get(node).size() == 0) {
+                                        for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
+                                            if (Thread.currentThread().isInterrupted()) {
+                                                System.out.println("线程请求中断...4");
+                                                return;
+                                            }
+                                            Enumerator pumpEnum = new Enumerator(pumpPath);
+                                            if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) {
+                                                getResult[0] = true;
+                                                return;
+                                            }
                                         }
-                                        Enumerator pumpEnum = new Enumerator(pumpPath_);
-                                        // System.out.println("pre:");
-                                        // System.out.println(printPath(prePath));
-                                        // System.out.println("pump:");
-                                        // System.out.println(printPath(pumpPath));
-                                        if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
+                                    }
+                                    else {
+                                        for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+                                            if (Thread.currentThread().isInterrupted()) {
+                                                System.out.println("线程请求中断...5");
+                                                return;
+                                            }
+                                            preEnum = new Enumerator(prePath);
+                                            for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
+                                                if (Thread.currentThread().isInterrupted()) {
+                                                    System.out.println("线程请求中断...6");
+                                                    return;
+                                                }
+                                                Enumerator pumpEnum = new Enumerator(pumpPath);
+                                                if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) {
+                                                    getResult[0] = true;
+                                                    return;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else {
+                                if (countingPrePaths.get(node) == null) {
+                                    ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+                                    Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                        @Override
+                                        public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                            return o1.size() - o2.size();
+                                        }
+                                    });
+                                    countingPrePaths.put(node, prePaths);
+                                }
+                                // SLQ2：counting开头不可空，判断前缀是否是中缀的子串，如果有重叠，测试""+(中缀&前缀）*n+"\b\n\b"
+                                for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
+                                    for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+                                        if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+
+                                        if (prePath.size() == 0) continue;
+                                        // if (isPath2InPath1(pumpPath, prePath)) {
+                                        //     Enumerator pumpEnum = new Enumerator(pumpPath);
+                                        //     System.out.println("pre:");
+                                        //     System.out.println(printPath(prePath));
+                                        //     System.out.println("pump:");
+                                        //     System.out.println(printPath(pumpPath));
+                                        //     if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) return;
+                                        //     System.out.println("\n----------\n");
+                                        // }
+
+                                        ArrayList<ArrayList<Set<Integer>>> pumpPaths = new ArrayList<>();
+                                        if (isPath2InPath1_returnPaths(pumpPath, prePath, pumpPaths)) {
+                                            if (debugPath)
+                                                attackMsg += "SLQ2" + "\n" + "pre:" + "\n" + printPath(prePath, false) + "\n" + "pump:" + "\n" + printPath(pumpPath, false) + "\n" + "pumpPaths:" + "\n" + printPaths(pumpPaths, false) + "\n";
+                                            if (realTest) {
+                                                for (ArrayList<Set<Integer>> pumpPath_ : pumpPaths) {
+                                                    if (Thread.currentThread().isInterrupted()) {
+                                                        System.out.println("线程请求中断...7");
+                                                        return;
+                                                    }
+                                                    Enumerator pumpEnum = new Enumerator(pumpPath_);
+                                                    // System.out.println("pre:");
+                                                    // System.out.println(printPath(prePath));
+                                                    // System.out.println("pump:");
+                                                    // System.out.println(printPath(pumpPath));
+                                                    if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) {
+                                                        getResult[0] = true;
+                                                        return;
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
+                });
+
 
 
             }
+
+            while(!getResult[0] && !Thread.currentThread().isInterrupted()){
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    // e.printStackTrace();
+                    System.out.println("线程请求中断...1");
+                }
+            }
+
+            // 停止executorService中的所有线程，并销毁executorService
+            executorService.shutdownNow();
+
             System.out.println("[*] SLQ finished");
         }
 
@@ -622,7 +712,7 @@ public class Analyzer {
 
     boolean threadInterrupt(String debugMsg, boolean debug) {
         if(Thread.currentThread().isInterrupted()){
-            System.out.println("线程请求中断...");
+            System.out.println("线程请求中断...2");
             if (debugPath && debug) {
                 try {
                     attackMsg += debugMsg;
@@ -659,6 +749,8 @@ public class Analyzer {
             father = tmp.father;
             tmp = father;
         }
+
+        if (threadInterrupt("getMidAndFrontNode", false)) return null;
 
         if (father instanceof ConnectNode) {
             ArrayList<ArrayList<Set<Integer>>> prefixPaths = new ArrayList<>();
@@ -871,7 +963,8 @@ public class Analyzer {
                         matchingStepCnt = testPattern4Search.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 1000000);
                     else matchingStepCnt = testPattern.getMatchingStepCnt("", pump, "\n\b\n", pumpMaxLength, 100000);
                 } catch (StackOverflowError e) {
-                    e.printStackTrace();
+                    // e.printStackTrace();
+                    System.out.println("StackOverflowError");
                     matchingStepCnt = 1000001;
                 }
                 if (debugStep) System.out.println(matchingStepCnt);
@@ -912,7 +1005,8 @@ public class Analyzer {
                         if (type == VulType.SLQ) matchingStepCnt = testPattern4Search.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 1000000);
                         else matchingStepCnt = testPattern.getMatchingStepCnt(pre, pump, "\n\b\n", pumpMaxLength, 100000);
                     } catch (StackOverflowError e) {
-                        e.printStackTrace();
+                        // e.printStackTrace();
+                        System.out.println("StackOverflowError");
                         matchingStepCnt = 1000001;
                     }
                     if (debugStep) System.out.println(matchingStepCnt);
@@ -2002,7 +2096,8 @@ public class Analyzer {
      * 对传入的树，递归地生成每一个节点的Path，同时记录每个循环节点，并为每个节点分配id且记录每个节点下属所有孩子节点的id
      * @param root 根节点
      */
-    private void generateAllPath(LeafNode root) {
+
+    private synchronized void generateAllPath(LeafNode root) {
         if (threadInterrupt("", false)) return;
 
         if (root == null) {
@@ -2059,9 +2154,9 @@ public class Analyzer {
         if (branchAtFirst(root) == 1) {
             // 在前部加入.{0,3}
             Pattern dotPattern = Pattern.compile(".{0,3}");
-            LeafNode dotTree = buildTree(dotPattern.root, new HashSet<>());
+            DotNode = buildTree(dotPattern.root, new HashSet<>());
 
-            root = new ConnectNode(dotTree, root, new HashSet<>());
+            root = new ConnectNode(DotNode, root, new HashSet<>());
         }
 
         if (threadInterrupt("", false)) return null;
