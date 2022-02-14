@@ -35,11 +35,11 @@ public class Analyzer {
     Set<Integer> noneWord;
 
     // private final boolean OneCouting = true;
-    private final boolean OneCouting = false;
-    private final boolean POA = true;
-    // private final boolean POA = false;
-    // private final boolean SLQ = true;
-    private final boolean SLQ = false;
+       private final boolean OneCouting = false;
+    // private final boolean POA = true;
+    private final boolean POA = false;
+       private final boolean SLQ = true;
+    // private final boolean SLQ = false;
 
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
@@ -199,32 +199,62 @@ public class Analyzer {
 
 
         if (OneCouting) {
-            for (LeafNode node : countingNodes) {
-                if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
-                for (int i = 0 ; i < node.getPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
-                    for (int j = i + 1; j < node.getPaths().size() && !Thread.currentThread().isInterrupted(); j++) {
-                        ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.getPaths().get(i), node.getPaths().get(j));
-                        if(pumpPath.size() != 0) {
-                            if (countingPrePaths.get(node) == null) {
-                                ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
-                                Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
-                                    @Override
-                                    public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                        return o1.size() - o2.size();
-                                    }
-                                });
-                                countingPrePaths.put(node, prePaths);
-                            }
-                            for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
-                                if (threadInterrupt("", false)) return;
+            final boolean[] getResult = {false};
+            ExecutorService executorService = Executors.newCachedThreadPool();
 
-                                Enumerator preEnum = new Enumerator(prePath);
-                                Enumerator pumpEnum = new Enumerator(pumpPath);
-                                if (dynamicValidate(preEnum, pumpEnum, VulType.OneCounting)) return;
+            for (LeafNode node : countingNodes) {
+
+                executorService.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        synchronized (countingPrePaths) {
+                            if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
+                            for (int i = 0 ; i < node.getPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
+                                for (int j = i + 1; j < node.getPaths().size() && !Thread.currentThread().isInterrupted(); j++) {
+                                    ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.getPaths().get(i), node.getPaths().get(j));
+                                    if(pumpPath.size() != 0) {
+                                        if (countingPrePaths.get(node) == null) {
+                                            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+                                            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                                @Override
+                                                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                                    return o1.size() - o2.size();
+                                                }
+                                            });
+                                            countingPrePaths.put(node, prePaths);
+                                        }
+                                        for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+                                            if (threadInterrupt("", false)) return;
+
+                                            Enumerator preEnum = new Enumerator(prePath);
+                                            Enumerator pumpEnum = new Enumerator(pumpPath);
+                                            if (dynamicValidate(preEnum, pumpEnum, VulType.OneCounting)) {
+                                                getResult[0] = true;
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
+                });
+
+
+                while(!getResult[0] && !Thread.currentThread().isInterrupted()) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        // e.printStackTrace();
+                        System.out.println("线程请求中断...1");
+                    }
                 }
+
+                // 停止executorService中的所有线程，并销毁executorService
+                executorService.shutdownNow();
+
+                System.out.println("[*] POA finished");
+
             }
             System.out.println("[*] OneCouting finished");
         }
@@ -497,7 +527,6 @@ public class Analyzer {
             }
 
             while(!getResult[0] && !Thread.currentThread().isInterrupted()) {
-            {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -888,7 +917,7 @@ public class Analyzer {
                         tmpResult.add(new HashSet<>(path1.get(j)));
                     }
                     if (rawPathHaveNoneSet) continue;
-                    // 使tmpResult = path1_1 + path1_2 & path2 + path1_3
+                        // 使tmpResult = path1_1 + path1_2 & path2 + path1_3
                     else {
                         tmpResult.addAll(charSet1);
                         result.add(tmpResult);
@@ -1224,7 +1253,7 @@ public class Analyzer {
                 Pattern.CharProperty cp = (Pattern.CharProperty) this.actualNode;
                 if (cp.charSet.size() != 0) {
                     if (setsEquals(cp.charSet, Dot)) this.SelfRegex += ".";
-                    // else if (setsEquals(cp.charSet, Bound)) this.SelfRegex += "\\b";
+                        // else if (setsEquals(cp.charSet, Bound)) this.SelfRegex += "\\b";
                     else if (setsEquals(cp.charSet, SpaceFull)) this.SelfRegex += "\\s";
                     else if (setsEquals(cp.charSet, noneSpace)) this.SelfRegex += "\\S";
                     else if (setsEquals(cp.charSet, All)) this.SelfRegex += "\\s\\S";
@@ -2105,8 +2134,8 @@ public class Analyzer {
         }
         else if (root instanceof LinkNode) {
             if (root instanceof ConnectNode) {
-                    generateAllPath(((ConnectNode) root).left);
-                    generateAllPath(((ConnectNode) root).right);
+                generateAllPath(((ConnectNode) root).left);
+                generateAllPath(((ConnectNode) root).right);
                 ((ConnectNode) root).generatePaths();
             }
             else if (root instanceof BranchNode) {
@@ -2599,7 +2628,7 @@ public class Analyzer {
             // 如果孩子遇到了实际字符，但是循环次数可以为0，那么返回可空
             if (!tmp && ((LoopNode) root).cmin == 0) return true;
 
-            // 孩子可空、孩子不可空且循环次数不能为0等情况都如实返回
+                // 孩子可空、孩子不可空且循环次数不能为0等情况都如实返回
             else return tmp;
         }
         else {
@@ -2633,7 +2662,7 @@ public class Analyzer {
             if (tmp == 0) return 0;
             else if (tmp == 1) return 1;
 
-            // 左右如果都可空，返回可空
+                // 左右如果都可空，返回可空
             else return 2;
         }
         else if (root instanceof LoopNode) {
@@ -2643,7 +2672,7 @@ public class Analyzer {
             // 如果孩子遇到了实际字符，但是循环次数可以为0，那么返回可空
             if (tmp == 0 && ((LoopNode) root).cmin == 0) return 2;
 
-            // branch开头，孩子也可空，孩子不可空且循环次数不能为0等情况都如实返回
+                // branch开头，孩子也可空，孩子不可空且循环次数不能为0等情况都如实返回
             else return tmp;
         }
         else {
