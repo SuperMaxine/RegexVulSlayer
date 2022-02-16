@@ -34,12 +34,12 @@ public class Analyzer {
     Set<Integer> All;
     Set<Integer> noneWord;
 
-    // private final boolean OneCouting = true;
-       private final boolean OneCouting = false;
+    private final boolean OneCouting = true;
+       // private final boolean OneCouting = false;
     // private final boolean POA = true;
     private final boolean POA = false;
-       private final boolean SLQ = true;
-    // private final boolean SLQ = false;
+    //    private final boolean SLQ = true;
+    private final boolean SLQ = false;
 
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
@@ -240,22 +240,20 @@ public class Analyzer {
                     }
                 });
 
-
-                while(!getResult[0] && !Thread.currentThread().isInterrupted()) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        // e.printStackTrace();
-                        System.out.println("线程请求中断...1");
-                    }
-                }
-
-                // 停止executorService中的所有线程，并销毁executorService
-                executorService.shutdownNow();
-
-                System.out.println("[*] POA finished");
-
             }
+
+            while(!getResult[0] && !Thread.currentThread().isInterrupted()) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    // e.printStackTrace();
+                    System.out.println("线程请求中断...1");
+                }
+            }
+
+            // 停止executorService中的所有线程，并销毁executorService
+            executorService.shutdownNow();
+
             System.out.println("[*] OneCouting finished");
         }
 

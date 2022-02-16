@@ -71,7 +71,7 @@ public class Main {
         while (true) {
             try {
                 if (!((str = bufferedReader.readLine()) != null)) break;
-                if (count <= 943) {
+                if (count <= 0) {
                     count++;
                     continue;
                 }
