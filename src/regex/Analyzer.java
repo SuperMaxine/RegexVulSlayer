@@ -36,26 +36,26 @@ public class Analyzer {
     private final boolean OneCouting = false;
     // private final boolean POA = true;
     private final boolean POA = false;
-    private final boolean SLQ = true;
-    // private final boolean SLQ = false;
+    // private final boolean SLQ = true;
+    private final boolean SLQ = false;
 
-    // private final boolean debugPath = true;
-    private final boolean debugPath = false;
+    private final boolean debugPath = true;
+    // private final boolean debugPath = false;
 
-    private final boolean debugStep = true;
-    // private final boolean debugStep = false;
+    // private final boolean debugStep = true;
+    private final boolean debugStep = false;
 
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    private final boolean debugStuck = true;
-    // private final boolean debugStuck = false;
+    // private final boolean debugStuck = true;
+    private final boolean debugStuck = false;
 
     // private final boolean debugFirstAndLast = true;
     private final boolean debugFirstAndLast = false;
 
-    private final boolean realTest = true;
-    // private final boolean realTest = false;
+    // private final boolean realTest = true;
+    private final boolean realTest = false;
 
     // private final boolean SpaceFullSet = true;
     private final boolean SpaceFullSet = false;
@@ -97,7 +97,10 @@ public class Analyzer {
     // 是否有特性决定枚举方式
     boolean haveAdvancedFeatures = false;
 
-    public Analyzer(String regex, int maxLength, int id) {
+    String file = "";
+
+    public Analyzer(String regex, int maxLength, int id, String file) {
+        this.file = file;
         this.regex = regex;
         this.maxLength = maxLength;
         fullSmallCharSet = new HashSet<>();
@@ -196,30 +199,37 @@ public class Analyzer {
         if (OneCouting) {
             for (LeafNode node : countingNodes) {
                 if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
-                for (int i = 0 ; i < node.getPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
+                if (countingPrePaths.get(node) == null) {
+                    ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+                    Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                        @Override
+                        public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                            return o1.size() - o2.size();
+                        }
+                    });
+                    countingPrePaths.put(node, prePaths);
+
+                }
+                if (debugPath) attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.getPaths(), false) +"\n";
+
+                for (int i = 0; i < node.getPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
                     for (int j = i + 1; j < node.getPaths().size() && !Thread.currentThread().isInterrupted(); j++) {
                         ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.getPaths().get(i), node.getPaths().get(j));
-                        if(pumpPath.size() != 0) {
-                            if (countingPrePaths.get(node) == null) {
-                                ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
-                                Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
-                                    @Override
-                                    public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                        return o1.size() - o2.size();
-                                    }
-                                });
-                                countingPrePaths.put(node, prePaths);
-                            }
-                            for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
-                                if (threadInterrupt("", false)) return;
+                        if (pumpPath.size() != 0) {
+                            if (debugPath) attackMsg += "\npath1:" + printPath(node.getPaths().get(i), false) + "\npath2:\n" + printPath(node.getPaths().get(j), false) + "\npump paths:\n" + printPath(pumpPath, false) + "\n";
+                            if (realTest) {
+                                for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
+                                    if (threadInterrupt("", false)) return;
 
-                                Enumerator preEnum = new Enumerator(prePath);
-                                Enumerator pumpEnum = new Enumerator(pumpPath);
-                                if (dynamicValidate(preEnum, pumpEnum, VulType.OneCounting)) return;
+                                    Enumerator preEnum = new Enumerator(prePath);
+                                    Enumerator pumpEnum = new Enumerator(pumpPath);
+                                    if (dynamicValidate(preEnum, pumpEnum, VulType.OneCounting)) return;
+                                }
                             }
                         }
                     }
                 }
+
             }
             System.out.println("[*] OneCouting finished");
         }
@@ -227,10 +237,14 @@ public class Analyzer {
         if (POA) {
             for (int i = 0; i < countingNodes.size() && !Thread.currentThread().isInterrupted(); i++) {
                 for (int j = i + 1; j < countingNodes.size() && !Thread.currentThread().isInterrupted(); j++) {
+                    if (threadInterrupt("\nTraversing paths time out\n", true)) return;
+
                     LeafNode node1 = countingNodes.get(i);
                     LeafNode node2 = countingNodes.get(j);
 
-                    if (debugPath) attackMsg += "----------------------------------------------------------\nnode1(id:"+node1.id+") regex:\n"+node1.SelfRegex+"\nnode2(id:"+countingNodes.get(j).id+") regex:\n"+countingNodes.get(j).SelfRegex+"\n";
+                    if (debugPath) {
+                        attackMsg += "----------------------------------------------------------\nnode1(id:"+node1.id+") regex:\n"+node1.SelfRegex+"\nnode2(id:"+countingNodes.get(j).id+") regex:\n"+countingNodes.get(j).SelfRegex+"\n";
+                    }
                     // 判断嵌套、直接相邻，以及夹着内容相邻
                     // 嵌套结构跳过不测
                     if (isNode1ChildOfNode2(node1, node2) || isNode1ChildOfNode2(node2, node1)) continue;
@@ -269,18 +283,20 @@ public class Analyzer {
 
                                     ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(path1, path2);
                                     if (pumpPath.size() != 0) {
-                                        if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
-                                        if (realTest) {
+                                        if (debugPath) {
                                             if (countingPrePaths.get(midPathsAndFrontNode.getValue()) == null) {
-                                                ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
-                                                Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
-                                                    @Override
-                                                    public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                                        return o1.size() - o2.size();
-                                                    }
-                                                });
-                                                countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
-                                            }
+                                            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
+                                            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                                @Override
+                                                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                                    return o1.size() - o2.size();
+                                                }
+                                            });
+                                            countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
+                                        }
+                                            attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
+                                        }
+                                        if (realTest) {
                                             for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
                                                 if (Thread.currentThread().isInterrupted()) {
                                                     System.out.println("线程请求中断...");
@@ -321,19 +337,23 @@ public class Analyzer {
 
                             if (debugPath) attackMsg += "POA-Nested:\nnode1 paths\n" + printPaths(node1.getPaths(), false) + "\nmidPaths:\n" + printPaths(midPathsAndFrontNode.getKey(), false) + "\nnode2 paths\n" + printPaths(countingNodes.get(j).getPaths(), false)  + "\n";
 
+
                             // 新方法判断
                             for (ArrayList<Set<Integer>> path1 : frontNode.getPaths()) {
+                                if (threadInterrupt("\nTraversing paths time out\n", true)) return;
                                 if (path1.size() == 0) continue;
                                 // 通过first和last判断是否可以跳过这条路径
                                 ArrayList<Set<Integer>> tmpPath = new ArrayList<>(path1);
                                 tmpPath.set(0, setsIntersection(tmpPath.get(0), firstIntersection));
                                 tmpPath.set(tmpPath.size() - 1, setsIntersection(tmpPath.get(tmpPath.size() - 1), lastIntersection));
-                                if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0) continue;
+                                if (tmpPath.get(0).size() == 0 && tmpPath.get(tmpPath.size() - 1).size() == 0)
+                                    continue;
                                 else path1 = tmpPath;
 
                                 // if (setsIntersection(path1.get(0), firstIntersection).size() == 0 && setsIntersection(path1.get(path1.size() - 1), lastIntersection).size() == 0) continue;
 
                                 for (ArrayList<Set<Integer>> path3 : backNode.getPaths()) {
+                                    if (threadInterrupt("\nTraversing paths time out\n", true)) return;
                                     if (path3.size() == 0 || path3.size() != path1.size()) continue;
                                     // 通过first和last判断是否可以跳过这条路径
                                     // tmpPath = new ArrayList<>(path3);
@@ -347,6 +367,7 @@ public class Analyzer {
                                     if (overlap.size() == 0) continue;
 
                                     for (ArrayList<Set<Integer>> path2 : midPathsAndFrontNode.getKey()) {
+                                        if (threadInterrupt("\nTraversing paths time out\n", true)) return;
                                         if (path2.size() == 0) continue;
                                         if (path2.size() > overlap.size()) continue;
                                         tmpPath = new ArrayList<>();
@@ -355,17 +376,21 @@ public class Analyzer {
                                             tmpCharSet.retainAll(overlap.get(k));
                                             if (tmpCharSet.size() == 0) {
                                                 break;
-                                            } else {
+                                            }
+                                            else {
                                                 tmpPath.add(tmpCharSet);
                                             }
                                         }
 
                                         boolean needTest = false;
+                                        int type = 0;
 
                                         // 长度相等只有完全重叠一种可能
                                         if (path2.size() == overlap.size()) {
                                             // 说明r2和overlap完全重叠
                                             if (tmpPath.size() == overlap.size()) {
+                                                type = 1;
+                                                overlap = tmpPath;
                                                 needTest = true;
                                             }
                                         }
@@ -373,6 +398,8 @@ public class Analyzer {
                                         else {
                                             // 说明r2是overLap的前缀
                                             if (tmpPath.size() == path2.size()) {
+                                                type = 2;
+                                                overlap = tmpPath;
                                                 needTest = true;
                                             }
 
@@ -380,14 +407,14 @@ public class Analyzer {
                                                 // r2是不是overLap的后缀需要重新测
                                                 tmpPath = new ArrayList<>();
                                                 int diff = overlap.size() - path2.size();
-                                                /*
-                                                0 1 2 3 4 5 size = 6
-                                                      0 1 2 size = 3
+                                            /*
+                                            0 1 2 3 4 5 size = 6
+                                                  0 1 2 size = 3
 
-                                                 */
+                                             */
                                                 for (int k = overlap.size() - 1; k >= diff && !Thread.currentThread().isInterrupted(); k--) {
                                                     Set<Integer> tmpCharSet = new HashSet<>(overlap.get(k));
-                                                    tmpCharSet.retainAll(path2.get(k-diff));
+                                                    tmpCharSet.retainAll(path2.get(k - diff));
                                                     if (tmpCharSet.size() == 0) {
                                                         break;
                                                     }
@@ -397,6 +424,8 @@ public class Analyzer {
                                                 }
                                                 // 说明r2是overLap的后缀
                                                 if (tmpPath.size() == path2.size()) {
+                                                    type = 3;
+                                                    overlap = tmpPath;
                                                     needTest = true;
                                                 }
                                             }
@@ -404,63 +433,35 @@ public class Analyzer {
                                         }
 
                                         if (needTest) {
-                                            for (ArrayList<Set<Integer>> prePath : prePaths) {
-                                                if (threadInterrupt("", false)) return;
+                                            if (debugPath) {
+                                                switch(type) {
+                                                    case 1:
+                                                        attackMsg += "\ntype: complete overlap\n";
+                                                        break;
+                                                    case 2:
+                                                        attackMsg += "\ntype: prefix\n";
+                                                        break;
+                                                    case 3:
+                                                        attackMsg += "\ntype: suffix\n";
+                                                        break;
+                                                }
+                                                attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npath3:\n" + printPath(path3, false) + "\npumpPath:\n" + printPath(overlap, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
+                                            }
 
-                                                Enumerator preEnum = new Enumerator(prePath);
-                                                Enumerator pumpEnum = new Enumerator(overlap);
-                                                if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
+                                            if (realTest) {
+                                                for (ArrayList<Set<Integer>> prePath : prePaths) {
+                                                    if (threadInterrupt("", false)) return;
+
+                                                    Enumerator preEnum = new Enumerator(prePath);
+                                                    Enumerator pumpEnum = new Enumerator(overlap);
+                                                    if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
 
-                            // // \w+0 vs \d+
-                            // for (ArrayList<Set<Integer>> path1 : splicePath(frontNode.getPaths(), midPathsAndFrontNode.getKey())) {
-                            //     if (path1.size() == 0) continue;
-                            //     for (ArrayList<Set<Integer>> path2 : backNode.getPaths()) {
-                            //         if (threadInterrupt("\nTraversing paths time out\n", true)) return;
-                            //         if (path2.size() == 0 || path1.size() != path2.size()) continue;
-                            //
-                            //         pumpPath = getPathCompletelyOverLap(path1, path2);
-                            //         if (pumpPath.size() != 0) {
-                            //             if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
-                            //             if (realTest) {
-                            //                 for (ArrayList<Set<Integer>> prePath : prePaths) {
-                            //                     if (threadInterrupt("", false)) return;
-                            //
-                            //                     Enumerator preEnum = new Enumerator(prePath);
-                            //                     Enumerator pumpEnum = new Enumerator(pumpPath);
-                            //                     if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
-                            //                 }
-                            //             }
-                            //         }
-                            //     }
-                            // }
-                            //
-                            // // \w+ vs 0\d+
-                            // for (ArrayList<Set<Integer>> path1 : splicePath(midPathsAndFrontNode.getKey(), backNode.getPaths())) {
-                            //     if (path1.size() == 0) continue;
-                            //     for (ArrayList<Set<Integer>> path2 : frontNode.getPaths()) {
-                            //         if (threadInterrupt("\nTraversing paths time out\n", true)) return;
-                            //         if (path2.size() == 0 || path1.size() != path2.size()) continue;
-                            //
-                            //         pumpPath = getPathCompletelyOverLap(path1, path2);
-                            //         if (pumpPath.size() != 0) {
-                            //             if (debugPath) attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(prePaths, false) + "\n";
-                            //             if (realTest) {
-                            //                 for (ArrayList<Set<Integer>> prePath : prePaths) {
-                            //                     if (threadInterrupt("", false)) return;
-                            //
-                            //                     Enumerator preEnum = new Enumerator(prePath);
-                            //                     Enumerator pumpEnum = new Enumerator(pumpPath);
-                            //                     if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) return;
-                            //                 }
-                            //             }
-                            //         }
-                            //     }
-                            // }
                         }
                     }
                 }
@@ -478,9 +479,33 @@ public class Analyzer {
                 // 如果cmax小于100或后缀可空，则不需要检查
                 if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) continue;
                 // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
-                if (debugPath) attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.getPaths(), false) +"\n";
+
+                if (countingPrePaths.get(node) == null) {
+                    ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+                    Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                        @Override
+                        public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                            return o1.size() - o2.size();
+                        }
+                    });
+                    countingPrePaths.put(node, prePaths);
+                }
+
+                if (debugPath) {
+                    if (countingPrePaths.get(node) == null) {
+                        ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
+                        Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                            @Override
+                            public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
+                                return o1.size() - o2.size();
+                            }
+                        });
+                        countingPrePaths.put(node, prePaths);
+                    }
+                    attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.getPaths(), false) +"\n";
+                }
                 if (haveEmptyBeginning(node)) {
-                    if (debugPath) attackMsg += "SLQ1:\npump paths\n" + printPaths(node.getPaths(), false) + "\n";
+                    if (debugPath) attackMsg += "SLQ1:\npump paths:\n" + printPaths(node.getPaths(), false) + "\n";
                     if (realTest) {
                         if (countingPrePaths.get(node) == null) {
                             ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
@@ -522,16 +547,6 @@ public class Analyzer {
                     }
                 }
                 else {
-                    if (countingPrePaths.get(node) == null) {
-                        ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
-                        Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
-                            @Override
-                            public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                return o1.size() - o2.size();
-                            }
-                        });
-                        countingPrePaths.put(node, prePaths);
-                    }
                     // SLQ2：counting开头不可空，判断前缀是否是中缀的子串，如果有重叠，测试""+(中缀&前缀）*n+"\b\n\b"
                     for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
@@ -582,7 +597,7 @@ public class Analyzer {
                 e.printStackTrace();
             }
             try {
-                BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                BufferedWriter writer = new BufferedWriter(new FileWriter("path-result-"+file, true));
                 writer.write(id + "," + attackMsg + "\n");
                 writer.close();
             } catch (IOException e) {
@@ -631,7 +646,7 @@ public class Analyzer {
                     e.printStackTrace();
                 }
                 try {
-                    BufferedWriter writer = new BufferedWriter(new FileWriter("path-result.txt", true));
+                    BufferedWriter writer = new BufferedWriter(new FileWriter("path-result-"+file, true));
                     writer.write(id + "," + attackMsg + "\n");
                     writer.close();
                 } catch (IOException e) {
