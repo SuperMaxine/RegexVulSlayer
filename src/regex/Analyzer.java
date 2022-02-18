@@ -248,6 +248,7 @@ public class Analyzer {
                 } catch (InterruptedException e) {
                     // e.printStackTrace();
                     System.out.println("线程请求中断...1");
+                    return;
                 }
             }
 
@@ -530,6 +531,7 @@ public class Analyzer {
                 } catch (InterruptedException e) {
                     // e.printStackTrace();
                     System.out.println("线程请求中断...1");
+                    return;
                 }
             }
 
@@ -683,6 +685,7 @@ public class Analyzer {
                 } catch (InterruptedException e) {
                     // e.printStackTrace();
                     System.out.println("线程请求中断...1");
+                    return;
                 }
             }
 
