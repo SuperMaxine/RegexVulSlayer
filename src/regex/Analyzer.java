@@ -44,14 +44,14 @@ public class Analyzer {
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
 
-    // private final boolean debugStep = true;
-    private final boolean debugStep = false;
+    private final boolean debugStep = true;
+    // private final boolean debugStep = false;
 
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    // private final boolean debugStuck = true;
-    private final boolean debugStuck = false;
+    private final boolean debugStuck = true;
+    // private final boolean debugStuck = false;
 
     // private final boolean debugFirstAndLast = true;
     private final boolean debugFirstAndLast = false;
@@ -197,6 +197,7 @@ public class Analyzer {
 
         if (threadInterrupt("generate all path time out", true)) return;
 
+        final int[] ThreadsNum = {0};
 
         if (OneCouting) {
             final boolean[] getResult = {false};
@@ -207,6 +208,7 @@ public class Analyzer {
                 executorService.execute(new Runnable() {
                     @Override
                     public void run() {
+                        ThreadsNum[0]++;
                         synchronized (countingPrePaths) {
                             if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
                             for (int i = 0 ; i < node.getPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
@@ -230,6 +232,7 @@ public class Analyzer {
                                             Enumerator pumpEnum = new Enumerator(pumpPath);
                                             if (dynamicValidate(preEnum, pumpEnum, VulType.OneCounting)) {
                                                 getResult[0] = true;
+                                                ThreadsNum[0]--;
                                                 return;
                                             }
                                         }
@@ -237,17 +240,19 @@ public class Analyzer {
                                 }
                             }
                         }
+                        ThreadsNum[0]--;
                     }
                 });
 
             }
 
-            while(!getResult[0] && !Thread.currentThread().isInterrupted()) {
+            while(!getResult[0] && !Thread.currentThread().isInterrupted() && ThreadsNum[0] > 0) {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
                     // e.printStackTrace();
                     System.out.println("线程请求中断...1");
+                    return;
                 }
             }
 
@@ -269,6 +274,7 @@ public class Analyzer {
                     executorService.execute(new Runnable() {
                         @Override
                         public void run() {
+                            ThreadsNum[0]++;
                             synchronized (countingPrePaths) {
                                 if (debugPath)
                                     attackMsg += "----------------------------------------------------------\nnode1(id:" + node1.id + ") regex:\n" + node1.SelfRegex + "\nnode2(id:" + node2.id + ") regex:\n" + node2.SelfRegex + "\n";
@@ -336,6 +342,7 @@ public class Analyzer {
                                                             Enumerator pumpEnum = new Enumerator(pumpPath);
                                                             if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) {
                                                                 getResult[0] = true;
+                                                                ThreadsNum[0]--;
                                                                 return;
                                                             }
                                                         }
@@ -463,6 +470,7 @@ public class Analyzer {
                                                             Enumerator pumpEnum = new Enumerator(overlap);
                                                             if (dynamicValidate(preEnum, pumpEnum, VulType.POA)) {
                                                                 getResult[0] = true;
+                                                                ThreadsNum[0]--;
                                                                 return;
                                                             }
                                                         }
@@ -519,17 +527,19 @@ public class Analyzer {
                                     }
                                 }
                             }
+                            ThreadsNum[0]--;
                         }
                     });
                 }
             }
 
-            while(!getResult[0] && !Thread.currentThread().isInterrupted()) {
+            while(!getResult[0] && !Thread.currentThread().isInterrupted() && ThreadsNum[0] > 0) {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
                     // e.printStackTrace();
                     System.out.println("线程请求中断...1");
+                    return;
                 }
             }
 
@@ -558,6 +568,7 @@ public class Analyzer {
                 executorService.execute(new Runnable() {
                     @Override
                     public void run() {
+                        ThreadsNum[0]++;
                         synchronized (countingPrePaths) {
                             Enumerator preEnum = new Enumerator(new ArrayList<>());
                             if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
@@ -591,6 +602,7 @@ public class Analyzer {
                                             Enumerator pumpEnum = new Enumerator(pumpPath);
                                             if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) {
                                                 getResult[0] = true;
+                                                ThreadsNum[0]--;
                                                 return;
                                             }
                                         }
@@ -610,6 +622,7 @@ public class Analyzer {
                                                 Enumerator pumpEnum = new Enumerator(pumpPath);
                                                 if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) {
                                                     getResult[0] = true;
+                                                    ThreadsNum[0]--;
                                                     return;
                                                 }
                                             }
@@ -661,6 +674,7 @@ public class Analyzer {
                                                     // System.out.println(printPath(pumpPath));
                                                     if (dynamicValidate(preEnum, pumpEnum, VulType.SLQ)) {
                                                         getResult[0] = true;
+                                                        ThreadsNum[0]--;
                                                         return;
                                                     }
                                                 }
@@ -670,6 +684,7 @@ public class Analyzer {
                                 }
                             }
                         }
+                        ThreadsNum[0]--;
                     }
                 });
 
@@ -677,12 +692,13 @@ public class Analyzer {
 
             }
 
-            while(!getResult[0] && !Thread.currentThread().isInterrupted()){
+            while(!getResult[0] && !Thread.currentThread().isInterrupted() && ThreadsNum[0] > 0) {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
                     // e.printStackTrace();
                     System.out.println("线程请求中断...1");
+                    return;
                 }
             }
 
