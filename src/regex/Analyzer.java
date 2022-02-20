@@ -44,14 +44,14 @@ public class Analyzer {
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
 
-    private final boolean debugStep = true;
-    // private final boolean debugStep = false;
+    // private final boolean debugStep = true;
+    private final boolean debugStep = false;
 
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    private final boolean debugStuck = true;
-    // private final boolean debugStuck = false;
+    // private final boolean debugStuck = true;
+    private final boolean debugStuck = false;
 
     // private final boolean debugFirstAndLast = true;
     private final boolean debugFirstAndLast = false;
