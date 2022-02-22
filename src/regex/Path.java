@@ -46,4 +46,9 @@ public class Path {
             realCharCount++;
         }
     }
+
+    public void addAll(Path p) {
+        path.addAll(p.getPath());
+        realCharCount += p.realCharCount;
+    }
 }
