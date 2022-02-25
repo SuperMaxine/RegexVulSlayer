@@ -8,6 +8,7 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,10 +35,10 @@ public class Analyzer {
     Set<Integer> All;
     Set<Integer> noneWord;
 
-    private final boolean OneCouting = true;
-       // private final boolean OneCouting = false;
-    // private final boolean POA = true;
-    private final boolean POA = false;
+    // private final boolean OneCouting = true;
+       private final boolean OneCouting = false;
+    private final boolean POA = true;
+    // private final boolean POA = false;
     //    private final boolean SLQ = true;
     private final boolean SLQ = false;
 
@@ -211,19 +212,23 @@ public class Analyzer {
                         ThreadsNum[0]++;
                         synchronized (countingPrePaths) {
                             if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
-                            for (int i = 0 ; i < node.getPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
-                                for (int j = i + 1; j < node.getPaths().size() && !Thread.currentThread().isInterrupted(); j++) {
-                                    ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.getPaths().get(i), node.getPaths().get(j));
+                            for (int i = 0 ; i < node.getRealPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
+                                for (int j = i + 1; j < node.getRealPaths().size() && !Thread.currentThread().isInterrupted(); j++) {
+                                    ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.getRealPaths().get(i), node.getRealPaths().get(j));
                                     if(pumpPath.size() != 0) {
                                         if (countingPrePaths.get(node) == null) {
-                                            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
-                                            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                            ArrayList<Path> prePaths = generatePrePath(node);
+                                            Collections.sort((prePaths), new Comparator<Path>() {
                                                 @Override
-                                                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                                    return o1.size() - o2.size();
+                                                public int compare(Path o1, Path o2) {
+                                                    return o1.getRealCharSize() - o2.getRealCharSize();
                                                 }
                                             });
-                                            countingPrePaths.put(node, prePaths);
+                                            ArrayList<ArrayList<Set<Integer>>> realPrePaths = new ArrayList<>();
+                                            for (Path path : prePaths) {
+                                                realPrePaths.addAll(path.getRealPaths(false));
+                                            }
+                                            countingPrePaths.put(node, realPrePaths);
                                         }
                                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
                                             if (threadInterrupt("", false)) return;
@@ -302,8 +307,8 @@ public class Analyzer {
                                         if (firstIntersection.size() == 0 || lastIntersection.size() == 0) return;
 
                                         if (debugPath)
-                                            attackMsg += "POA-Direct Adjacent:\nnode1 paths\n" + printPaths(node1.getPaths(), false) + "\nnode2 paths\n" + printPaths(node2.getPaths(), false) + "\n\n";
-                                        for (ArrayList<Set<Integer>> path1 : node1.getPaths()) {
+                                            attackMsg += "POA-Direct Adjacent:\nnode1 paths\n" + printPaths(node1.getRealPaths(), false) + "\nnode2 paths\n" + printPaths(node2.getRealPaths(), false) + "\n\n";
+                                        for (ArrayList<Set<Integer>> path1 : node1.getRealPaths()) {
                                             if (path1.size() == 0) continue;
 
                                             // 通过first和last判断是否可以跳过这条路径
@@ -314,7 +319,7 @@ public class Analyzer {
                                                 continue;
                                             else path1 = tmpPath;
 
-                                            for (ArrayList<Set<Integer>> path2 : node2.getPaths()) {
+                                            for (ArrayList<Set<Integer>> path2 : node2.getRealPaths()) {
                                                 if (threadInterrupt("\nTraversing paths time out\n", true)) return;
                                                 if (path2.size() == 0 || path1.size() != path2.size()) continue;
 
@@ -324,14 +329,18 @@ public class Analyzer {
                                                         attackMsg += "\npath1:\n" + printPath(path1, false) + "\npath2:\n" + printPath(path2, false) + "\npumpPath:\n" + printPath(pumpPath, false) + "\nprePaths:\n" + printPaths(countingPrePaths.get(midPathsAndFrontNode.getValue()), false) + "\n";
                                                     if (realTest) {
                                                         if (countingPrePaths.get(midPathsAndFrontNode.getValue()) == null) {
-                                                            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
-                                                            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                                            ArrayList<Path> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
+                                                            Collections.sort((prePaths), new Comparator<Path>() {
                                                                 @Override
-                                                                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                                                    return o1.size() - o2.size();
+                                                                public int compare(Path o1, Path o2) {
+                                                                    return o1.getRealCharSize() - o2.getRealCharSize();
                                                                 }
                                                             });
-                                                            countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
+                                                            ArrayList<ArrayList<Set<Integer>>> prePathsRealPaths = new ArrayList<>();
+                                                            for (Path path : prePaths) {
+                                                                prePathsRealPaths.addAll(path.getRealPaths(false));
+                                                            }
+                                                            countingPrePaths.put(midPathsAndFrontNode.getValue(), prePathsRealPaths);
                                                         }
                                                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
                                                             if (Thread.currentThread().isInterrupted()) {
@@ -361,14 +370,18 @@ public class Analyzer {
                                         if (firstIntersection.size() == 0 || lastIntersection.size() == 0) return;
 
                                         if (countingPrePaths.get(midPathsAndFrontNode.getValue()) == null) {
-                                            ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
-                                            Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                            ArrayList<Path> prePaths = generatePrePath(midPathsAndFrontNode.getValue());
+                                            Collections.sort((prePaths), new Comparator<Path>() {
                                                 @Override
-                                                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                                    return o1.size() - o2.size();
+                                                public int compare(Path o1, Path o2) {
+                                                    return o1.getRealCharSize() - o2.getRealCharSize();
                                                 }
                                             });
-                                            countingPrePaths.put(midPathsAndFrontNode.getValue(), prePaths);
+                                            ArrayList<ArrayList<Set<Integer>>> prePathsRealPaths = new ArrayList<>();
+                                            for (Path path : prePaths) {
+                                                prePathsRealPaths.addAll(path.getRealPaths(false));
+                                            }
+                                            countingPrePaths.put(midPathsAndFrontNode.getValue(), prePathsRealPaths);
                                         }
                                         ArrayList<ArrayList<Set<Integer>>> prePaths = countingPrePaths.get(midPathsAndFrontNode.getValue());
                                         ArrayList<Set<Integer>> pumpPath;
@@ -376,10 +389,10 @@ public class Analyzer {
                                         LeafNode backNode = node1 == midPathsAndFrontNode.getValue() ? node2 : node1;
 
                                         if (debugPath)
-                                            attackMsg += "POA-Nested:\nnode1 paths\n" + printPaths(node1.getPaths(), false) + "\nmidPaths:\n" + printPaths(midPathsAndFrontNode.getKey(), false) + "\nnode2 paths\n" + printPaths(node2.getPaths(), false) + "\n";
+                                            attackMsg += "POA-Nested:\nnode1 paths\n" + printPaths(node1.getRealPaths(), false) + "\nmidPaths:\n" + printPaths(midPathsAndFrontNode.getKey(), false) + "\nnode2 paths\n" + printPaths(node2.getRealPaths(), false) + "\n";
 
                                         // 新方法判断
-                                        for (ArrayList<Set<Integer>> path1 : frontNode.getPaths()) {
+                                        for (ArrayList<Set<Integer>> path1 : frontNode.getRealPaths()) {
                                             if (path1.size() == 0) continue;
                                             // 通过first和last判断是否可以跳过这条路径
                                             ArrayList<Set<Integer>> tmpPath = new ArrayList<>(path1);
@@ -391,7 +404,7 @@ public class Analyzer {
 
                                             // if (setsIntersection(path1.get(0), firstIntersection).size() == 0 && setsIntersection(path1.get(path1.size() - 1), lastIntersection).size() == 0) continue;
 
-                                            for (ArrayList<Set<Integer>> path3 : backNode.getPaths()) {
+                                            for (ArrayList<Set<Integer>> path3 : backNode.getRealPaths()) {
                                                 if (path3.size() == 0 || path3.size() != path1.size()) continue;
                                                 // 通过first和last判断是否可以跳过这条路径
                                                 // tmpPath = new ArrayList<>(path3);
@@ -578,23 +591,27 @@ public class Analyzer {
                             if (((LoopNode) node).cmax < 100 || !neverhaveEmptySuffix(node)) return;
                             // SLQ1：counting开头可空，测试""+y*n+"\b\n\b"
                             if (debugPath)
-                                attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.getPaths(), false) + "\n";
+                                attackMsg += "----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\nprePaths:\n" + printPaths(countingPrePaths.get(node), false) + "\npumpPaths:\n" + printPaths(node.getRealPaths(), false) + "\n";
                             if (haveEmptyBeginning(node)) {
                                 if (debugPath)
-                                    attackMsg += "SLQ1:\npump paths\n" + printPaths(node.getPaths(), false) + "\n";
+                                    attackMsg += "SLQ1:\npump paths\n" + printPaths(node.getRealPaths(), false) + "\n";
                                 if (realTest) {
                                     if (countingPrePaths.get(node) == null) {
-                                        ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
-                                        Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                        ArrayList<Path> prePaths = generatePrePath(node);
+                                        Collections.sort((prePaths), new Comparator<Path>() {
                                             @Override
-                                            public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                                return o1.size() - o2.size();
+                                            public int compare(Path o1, Path o2) {
+                                                return o1.getRealCharSize() - o2.getRealCharSize();
                                             }
                                         });
-                                        countingPrePaths.put(node, prePaths);
+                                        ArrayList<ArrayList<Set<Integer>>> realPrePaths = new ArrayList<>();
+                                        for (Path path : prePaths) {
+                                            realPrePaths.addAll(path.getRealPaths(false));
+                                        }
+                                        countingPrePaths.put(node, realPrePaths);
                                     }
                                     if (countingPrePaths.get(node).size() == 0) {
-                                        for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
+                                        for (ArrayList<Set<Integer>> pumpPath : node.getRealPaths()) {
                                             if (Thread.currentThread().isInterrupted()) {
                                                 System.out.println("线程请求中断...4");
                                                 return;
@@ -614,7 +631,7 @@ public class Analyzer {
                                                 return;
                                             }
                                             preEnum = new Enumerator(prePath);
-                                            for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
+                                            for (ArrayList<Set<Integer>> pumpPath : node.getRealPaths()) {
                                                 if (Thread.currentThread().isInterrupted()) {
                                                     System.out.println("线程请求中断...6");
                                                     return;
@@ -632,17 +649,21 @@ public class Analyzer {
                             }
                             else {
                                 if (countingPrePaths.get(node) == null) {
-                                    ArrayList<ArrayList<Set<Integer>>> prePaths = generatePrePath(node);
-                                    Collections.sort((prePaths), new Comparator<ArrayList<Set<Integer>>>() {
+                                    ArrayList<Path> prePaths = generatePrePath(node);
+                                    Collections.sort((prePaths), new Comparator<Path>() {
                                         @Override
-                                        public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                                            return o1.size() - o2.size();
+                                        public int compare(Path o1, Path o2) {
+                                            return o1.getRealCharSize() - o2.getRealCharSize();
                                         }
                                     });
-                                    countingPrePaths.put(node, prePaths);
+                                    ArrayList<ArrayList<Set<Integer>>> realPrePaths = new ArrayList<>();
+                                    for (Path path : prePaths) {
+                                        realPrePaths.addAll(path.getRealPaths(false));
+                                    }
+                                    countingPrePaths.put(node, realPrePaths);
                                 }
                                 // SLQ2：counting开头不可空，判断前缀是否是中缀的子串，如果有重叠，测试""+(中缀&前缀）*n+"\b\n\b"
-                                for (ArrayList<Set<Integer>> pumpPath : node.getPaths()) {
+                                for (ArrayList<Set<Integer>> pumpPath : node.getRealPaths()) {
                                     for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
                                         if (threadInterrupt("\nTraversing paths time out\n", true)) return;
 
@@ -783,7 +804,6 @@ public class Analyzer {
      * @return 如果能分出前后（最小父节点是ConnectNode），返回中间路径和前节点；如果是Branch，返回null，表示跳过不测
      */
     Pair<ArrayList<ArrayList<Set<Integer>>>, LeafNode> getMidAndFrontNode(LeafNode node1, LeafNode node2) {
-        Pair<ArrayList<ArrayList<Set<Integer>>>, ArrayList<ArrayList<Set<Integer>>>> result;
         ArrayList<ArrayList<Set<Integer>>> midPaths = new ArrayList<>();
         // 向上遍历，找到最小公共父节点
         LeafNode tmp = node1;
@@ -796,8 +816,8 @@ public class Analyzer {
         if (threadInterrupt("getMidAndFrontNode", false)) return null;
 
         if (father instanceof ConnectNode) {
-            ArrayList<ArrayList<Set<Integer>>> prefixPaths = new ArrayList<>();
-            ArrayList<ArrayList<Set<Integer>>> suffixPaths = new ArrayList<>();
+            ArrayList<Path> prefixPaths = new ArrayList<>();
+            ArrayList<Path> suffixPaths = new ArrayList<>();
             LeafNode front = null, back = null;
             if (((ConnectNode) father).comeFromLeft(node1) && ((ConnectNode) father).comeFromRight(node2)) {
                 // 说明node1在前，node2在后，node1求后缀，node2求前缀，在最小父节点相遇组合就是中间路径
@@ -830,14 +850,18 @@ public class Analyzer {
                 tmpfather = tmp.father;
             }
 
-            midPaths = splicePath(prefixPaths, suffixPaths);
+            ArrayList<Path> tmpMidPaths = splicePath(prefixPaths, suffixPaths);
 
-            Collections.sort((midPaths), new Comparator<ArrayList<Set<Integer>>>() {
+            Collections.sort((tmpMidPaths), new Comparator<Path>() {
                 @Override
-                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                    return o1.size() - o2.size();
+                public int compare(Path o1, Path o2) {
+                    return o1.getRealCharSize() - o2.getRealCharSize();
                 }
             });
+
+            for (Path path : tmpMidPaths) {
+                midPaths.addAll(path.getRealPaths(true));
+            }
 
             return new Pair<>(midPaths, front);
         }
@@ -948,8 +972,8 @@ public class Analyzer {
         while (node != this.root && !Thread.currentThread().isInterrupted()) {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromRight(node)) {
-                ArrayList<ArrayList<Set<Integer>>> prePaths = ((ConnectNode) father).returnTrueLeftPaths();
-                if (prePaths.size() != 0 && prePaths.get(0).size() != 0 ) return false;
+                ArrayList<Path> prePaths = ((ConnectNode) father).returnTrueLeftPaths();
+                if (prePaths.size() != 0 && prePaths.get(0).getRealCharSize() != 0 ) return false;
                 if (((ConnectNode) father).beginInLeftPath()) return false;
             }
             node = father;
@@ -962,8 +986,8 @@ public class Analyzer {
         while (node != this.root && !Thread.currentThread().isInterrupted()) {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromLeft(node)) {
-                ArrayList<ArrayList<Set<Integer>>> suffixPaths = ((ConnectNode) father).returnTrueRightPaths();
-                if (suffixPaths.size() != 0 && suffixPaths.get(0).size() != 0 ) result = true;
+                ArrayList<Path> suffixPaths = ((ConnectNode) father).returnTrueRightPaths();
+                if (suffixPaths.size() != 0 && suffixPaths.get(0).getRealCharSize() != 0 ) result = true;
                 if (((ConnectNode) father).endInRight()) result = true;
             }
             else if (father instanceof LoopNode && ((LoopNode) father).cmin == 0) {
@@ -1219,7 +1243,9 @@ public class Analyzer {
     private class LeafNode {
         Set<Integer> groupNums;
         LeafNode father;
-        ArrayList<ArrayList<Set<Integer>>> paths;
+        ArrayList<Path> paths;
+        ArrayList<ArrayList<Set<Integer>>> realPaths;
+        boolean realPathsGenerated = false;
         Pattern.Node actualNode;
         boolean beginInPath = false;
         boolean endInPath = false;
@@ -1236,6 +1262,7 @@ public class Analyzer {
             this.actualNode = actualNode;
             this.first = new HashSet<>();
             this.last = new HashSet<>();
+            this.realPaths = new ArrayList<>();
         }
 
         LeafNode copy(LeafNode father, Set<Integer> groupNums) {
@@ -1257,7 +1284,7 @@ public class Analyzer {
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
-                    +printPaths(paths, true)+"\"]");
+                    +printPaths(this.getRealPaths(), true)+"\"]");
         }
 
         void generateSelfRegex() {
@@ -1294,7 +1321,7 @@ public class Analyzer {
             }
         }
 
-        ArrayList<ArrayList<Set<Integer>>> getPaths() {
+        ArrayList<Path> getPaths() {
             if (!this.pathGenerated) {
                 generateAllPath(this);
                 this.pathGenerated = true;
@@ -1302,32 +1329,54 @@ public class Analyzer {
             return this.paths;
         }
 
+        ArrayList<ArrayList<Set<Integer>>> getRealPaths(){
+            if (!this.pathGenerated) {
+                generateAllPath(this);
+                this.pathGenerated = true;
+            }
+            if (!this.realPathsGenerated) {
+                for (Path path : this.paths) {
+                    realPaths.addAll(path.getRealPaths(true));
+                }
+                realPathsGenerated = true;
+            }
+            return this.realPaths;
+        }
+
         public void generatePaths() {
             if (pathGenerated) return;
             if (this.actualNode instanceof Pattern.CharProperty){
-                ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                // ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                Path tmpPath = new Path();
                 if (((Pattern.CharProperty) this.actualNode).charSet.size() > 0) {
-                    tmpPath.add(((Pattern.CharProperty) this.actualNode).charSet);
+                    PathNode pn = new PathNode(((Pattern.CharProperty) this.actualNode).charSet);
+                    tmpPath.add(pn);
                 }
                 this.paths.add(tmpPath);
                 this.pathGenerated = true;
             }
             else if (this.actualNode instanceof Pattern.SliceNode){
-                ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                // ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                Path tmpPath = new Path();
                 for (int i : ((Pattern.SliceNode) this.actualNode).buffer) {
                     Set<Integer> tmpCharSet = new HashSet<>();
                     tmpCharSet.add(i);
-                    tmpPath.add(tmpCharSet);
+                    PathNode pn = new PathNode(tmpCharSet);
+                    // tmpPath.add(tmpCharSet);
+                    tmpPath.add(pn);
                 }
                 this.paths.add(tmpPath);
                 this.pathGenerated = true;
             }
             else if (this.actualNode instanceof Pattern.BnM) {
-                ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                // ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+                Path tmpPath = new Path();
                 for (int i : ((Pattern.BnM) this.actualNode).buffer) {
                     Set<Integer> tmpCharSet = new HashSet<>();
                     tmpCharSet.add(i);
-                    tmpPath.add(tmpCharSet);
+                    // tmpPath.add(tmpCharSet);
+                    PathNode pn = new PathNode(tmpCharSet);
+                    tmpPath.add(pn);
                 }
                 this.paths.add(tmpPath);
                 this.pathGenerated = true;
@@ -1344,8 +1393,8 @@ public class Analyzer {
                 this.last = ((Pattern.CharProperty) this.actualNode).charSet;
             }
             else if (this.actualNode instanceof Pattern.SliceNode || this.actualNode instanceof Pattern.BnM){
-                this.first.addAll(this.paths.get(0).get(0));
-                this.last.addAll(this.paths.get(0).get(this.paths.get(0).size() - 1));
+                this.first.addAll(this.paths.get(0).getRealPaths(false).get(0).get(0));
+                this.last.addAll(this.paths.get(0).getRealPaths(false).get(0).get(this.paths.get(0).getRealPaths(false).get(0).size() - 1));
             }
         }
 
@@ -1412,8 +1461,8 @@ public class Analyzer {
     private class ConnectNode extends LinkNode {
         LeafNode left;
         LeafNode right;
-        ArrayList<ArrayList<Set<Integer>>> leftPaths;
-        ArrayList<ArrayList<Set<Integer>>> rightPaths;
+        ArrayList<Path> leftPaths;
+        ArrayList<Path> rightPaths;
 
         ConnectNode (LeafNode left, LeafNode right, Set<Integer> groupNums) {
             super(groupNums, null);
@@ -1440,12 +1489,24 @@ public class Analyzer {
                     if (left.beginInPath) this.beginInPath = true;
                     if (left.endInPath) this.endInPath = true;
                 }
+                else {
+                    Path tmpPath = new Path();
+                    PathNode pn = new PathNode(left.getPaths(), ((LookaroundNode) left).type);
+                    tmpPath.add(pn);
+                    leftPaths.add(tmpPath);
+                }
             }
             if (right != null) {
                 if (!(right instanceof LookaroundNode)) {
                     rightPaths.addAll(right.getPaths());
                     if (right.beginInPath) this.beginInPath = true;
                     if (right.endInPath) this.endInPath = true;
+                }
+                else {
+                    Path tmpPath = new Path();
+                    PathNode pn = new PathNode(right.getPaths(), ((LookaroundNode) right).type);
+                    tmpPath.add(pn);
+                    leftPaths.add(tmpPath);
                 }
             }
 
@@ -1456,14 +1517,16 @@ public class Analyzer {
                 this.paths.addAll(leftPaths);
             }
             else {
-                for (ArrayList<Set<Integer>> leftPath : leftPaths) {
-                    for (ArrayList<Set<Integer>> rightPath : rightPaths) {
+                for (Path leftPath : leftPaths) {
+                    for (Path rightPath : rightPaths) {
                         if (threadInterrupt("", false)) return;
 
-                        if (leftPath.size() + rightPath.size() > maxLength) {
+                        // if (leftPath.size() + rightPath.size() > maxLength) {
+                        if (leftPath.getRealCharSize() + rightPath.getRealCharSize() > maxLength) {
                             continue;
                         }
-                        ArrayList<Set<Integer>> newPath = new ArrayList<>();
+                        // ArrayList<Set<Integer>> newPath = new ArrayList<>();
+                        Path newPath = new Path();
                         newPath.addAll(leftPath);
                         newPath.addAll(rightPath);
                         this.paths.add(newPath);
@@ -1474,10 +1537,10 @@ public class Analyzer {
             if (threadInterrupt("", false)) return;
 
 
-            Collections.sort((this.paths), new Comparator<ArrayList<Set<Integer>>>() {
+            Collections.sort((this.paths), new Comparator<Path>() {
                 @Override
-                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                    return o1.size() - o2.size();
+                public int compare(Path o1, Path o2) {
+                    return o1.getRealCharSize() - o2.getRealCharSize();
                 }
             });
         }
@@ -1533,14 +1596,14 @@ public class Analyzer {
             return node == right || (right!=null && id2childNodes.get(right.id).contains(node.id));
         }
 
-        ArrayList<ArrayList<Set<Integer>>> returnTrueLeftPaths() {
-            ArrayList<ArrayList<Set<Integer>>> result = new ArrayList<>();
+        ArrayList<Path> returnTrueLeftPaths() {
+            ArrayList<Path> result = new ArrayList<>();
             if (left != null && !(left instanceof LookaroundNode)) result.addAll(left.getPaths());
             return result;
         }
 
-        ArrayList<ArrayList<Set<Integer>>> returnTrueRightPaths() {
-            ArrayList<ArrayList<Set<Integer>>> result = new ArrayList<>();
+        ArrayList<Path> returnTrueRightPaths() {
+            ArrayList<Path> result = new ArrayList<>();
             if (right != null && !(right instanceof LookaroundNode)) result.addAll(right.getPaths());
             return result;
         }
@@ -1571,14 +1634,14 @@ public class Analyzer {
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
-                    +(debug ? printPaths(paths, true) : "")+"\"]");
+                    +(debug ? printPaths(this.getRealPaths(), true) : "")+"\"]");
         }
     }
 
     // 分支结构
     private class BranchNode extends LinkNode {
         ArrayList<LeafNode> children;
-        Map<LeafNode, ArrayList<ArrayList<Set<Integer>>>> childrenPaths;
+        Map<LeafNode, ArrayList<Path>> childrenPaths;
 
         BranchNode (Pattern.Node actualNode, Set<Integer> groupNums) {
             super(groupNums, actualNode);
@@ -1608,11 +1671,17 @@ public class Analyzer {
                     if (!child.beginInPath) this.beginInPath = false;
                     if (!child.endInPath) this.endInPath = false;
                 }
+                else {
+                    Path tmpPath = new Path();
+                    PathNode tmpPathNode = new PathNode(child.getPaths(), ((LookaroundNode) child).type);
+                    tmpPath.add(tmpPathNode);
+                    this.paths.add(tmpPath);
+                }
             }
-            Collections.sort((this.paths), new Comparator<ArrayList<Set<Integer>>>() {
+            Collections.sort((this.paths), new Comparator<Path>() {
                 @Override
-                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                    return o1.size() - o2.size();
+                public int compare(Path o1, Path o2) {
+                    return o1.getRealCharSize() - o2.getRealCharSize();
                 }
             });
         }
@@ -1680,7 +1749,7 @@ public class Analyzer {
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
-                    +(debug ? printPaths(paths, true) : "")+"\"]");
+                    +(debug ? printPaths(this.getRealPaths(), true) : "")+"\"]");
         }
     }
 
@@ -1689,7 +1758,7 @@ public class Analyzer {
         int cmin;
         int cmax;
         LeafNode atom;
-        ArrayList<ArrayList<Set<Integer>>> atomPaths;
+        ArrayList<Path> atomPaths;
 
         LoopNode (int cmin, int cmax, LeafNode atom, Pattern.Node actualNode, Set<Integer> groupNums) {
             super(groupNums, actualNode);
@@ -1710,22 +1779,30 @@ public class Analyzer {
                     if (cmin != 0) this.beginInPath = atom.beginInPath;
                     if (cmin != 0) this.endInPath = atom.endInPath;
                 }
+                else {
+                    Path path = new Path();
+                    PathNode pathNode = new PathNode(atom.getPaths(), ((LookaroundNode) atom).type);
+                    path.add(pathNode);
+                    this.atomPaths.add(path);
+                }
             }
 
-            ArrayList<ArrayList<Set<Integer>>> lastPaths = new ArrayList<>();
-            lastPaths.add(new ArrayList<>());
+            // ArrayList<ArrayList<Set<Integer>>> lastPaths = new ArrayList<>();
+            // lastPaths.add(new ArrayList<>());
+            ArrayList<Path> lastPaths = new ArrayList<>();
+            lastPaths.add(new Path());
 
             for (int i = 0; i < cmin && !Thread.currentThread().isInterrupted(); i++) {
-                ArrayList<ArrayList<Set<Integer>>> newPaths = new ArrayList<>();
-                for (ArrayList<Set<Integer>> atomPath : atomPaths) {
-                    if (atomPath.size() == 0) continue;
-                    for (ArrayList<Set<Integer>> lastPath : lastPaths) {
+                ArrayList<Path> newPaths = new ArrayList<>();
+                for (Path atomPath : atomPaths) {
+                    if (atomPath.getRealCharSize() == 0) continue;
+                    for (Path lastPath : lastPaths) {
                         if (threadInterrupt("", false)) return;
 
-                        if (lastPath.size() + atomPath.size() > maxLength) {
+                        if (lastPath.getRealCharSize() + atomPath.getRealCharSize() > maxLength) {
                             continue;
                         }
-                        ArrayList<Set<Integer>> newPath = new ArrayList<>();
+                        Path newPath = new Path();
                         newPath.addAll(lastPath);
                         newPath.addAll(atomPath);
                         newPaths.add(newPath);
@@ -1737,16 +1814,16 @@ public class Analyzer {
             this.paths = new ArrayList<>();
             for (int i = cmin; i < cmax && i < maxLength && !Thread.currentThread().isInterrupted(); i++) {
                 this.paths.addAll(lastPaths);
-                ArrayList<ArrayList<Set<Integer>>> newPaths = new ArrayList<>();
-                for (ArrayList<Set<Integer>> atomPath : atomPaths) {
-                    if (atomPath.size() == 0) continue;
-                    for (ArrayList<Set<Integer>> lastPath : lastPaths) {
+                ArrayList<Path> newPaths = new ArrayList<>();
+                for (Path atomPath : atomPaths) {
+                    if (atomPath.getRealCharSize() == 0) continue;
+                    for (Path lastPath : lastPaths) {
                         if (threadInterrupt("", false)) return;
 
-                        if (lastPath.size() + atomPath.size() > maxLength) {
+                        if (lastPath.getRealCharSize() + atomPath.getRealCharSize() > maxLength) {
                             continue;
                         }
-                        ArrayList<Set<Integer>> newPath = new ArrayList<>();
+                        Path newPath = new Path();
                         newPath.addAll(lastPath);
                         newPath.addAll(atomPath);
                         newPaths.add(newPath);
@@ -1756,10 +1833,10 @@ public class Analyzer {
             }
             this.paths.addAll(lastPaths);
 
-            Collections.sort((this.paths), new Comparator<ArrayList<Set<Integer>>>() {
+            Collections.sort((this.paths), new Comparator<Path>() {
                 @Override
-                public int compare(ArrayList<Set<Integer>> o1, ArrayList<Set<Integer>> o2) {
-                    return o1.size() - o2.size();
+                public int compare(Path o1, Path o2) {
+                    return o1.getRealCharSize() - o2.getRealCharSize();
                 }
             });
         }
@@ -1808,7 +1885,7 @@ public class Analyzer {
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
-                    +(debug ? printPaths(paths, true) : "")+"\"]");
+                    +(debug ? printPaths(this.getRealPaths(), true) : "")+"\"]");
         }
     }
 
@@ -1891,7 +1968,7 @@ public class Analyzer {
                     + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
-                    +(debug ? printPaths(paths, true) : "")+"\"]");
+                    +(debug ? printPaths(this.getRealPaths(), true) : "")+"\"]");
         }
     }
 
@@ -1918,7 +1995,7 @@ public class Analyzer {
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + "groupIndex = " + groupIndex + "\\n"
                     + "localIndex = " + groupIndex2LocalIndex.get(groupIndex) + "\\n"
-                    +(debug ? printPaths(paths, true) : "")+"\"]");
+                    +(debug ? printPaths(this.getRealPaths(), true) : "")+"\"]");
         }
     }
 
@@ -2010,14 +2087,14 @@ public class Analyzer {
      * @param countingNode 需要生成前缀路径的节点
      * @return 该节点的前缀路径
      */
-    private ArrayList<ArrayList<Set<Integer>>> generatePrePath(LeafNode countingNode) {
+    private ArrayList<Path> generatePrePath(LeafNode countingNode) {
         LeafNode node = countingNode;
-        ArrayList<ArrayList<Set<Integer>>> result = new ArrayList<>();
+        ArrayList<Path> result = new ArrayList<>();
         while (node != this.root && !Thread.currentThread().isInterrupted()) {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromRight(node)) {
                 // ArrayList<ArrayList<Set<Integer>>> left = ((ConnectNode) father).returnTrueLeftPaths();
-                ArrayList<ArrayList<Set<Integer>>> tmp = splicePath(((ConnectNode) father).returnTrueLeftPaths(), result);
+                ArrayList<Path> tmp = splicePath(((ConnectNode) father).returnTrueLeftPaths(), result);
                 if (result.size() != 0 && tmp.size() == 0) {
                     return new ArrayList<>();
                 }
@@ -2028,7 +2105,7 @@ public class Analyzer {
             // }
             node = father;
         }
-        if (result.size() == 0) result.add(new ArrayList<>());
+        if (result.size() == 0) result.add(new Path());
         return result;
     }
 
@@ -2051,8 +2128,8 @@ public class Analyzer {
      * @param suffix 被生成路径的后缀
      * @return 前缀+后缀
      */
-    private ArrayList<ArrayList<Set<Integer>>> splicePath(ArrayList<ArrayList<Set<Integer>>> prefix, ArrayList<ArrayList<Set<Integer>>> suffix) {
-        ArrayList<ArrayList<Set<Integer>>> result = new ArrayList<>();
+    private ArrayList<Path> splicePath(ArrayList<Path> prefix, ArrayList<Path> suffix) {
+        ArrayList<Path> result = new ArrayList<>();
         if (prefix.size() == 0) {
             result.addAll(suffix);
         }
@@ -2060,12 +2137,12 @@ public class Analyzer {
             result.addAll(prefix);
         }
         else {
-            for (ArrayList<Set<Integer>> prefixPath : prefix) {
-                for (ArrayList<Set<Integer>> suffixPath : suffix) {
+            for (Path prefixPath : prefix) {
+                for (Path suffixPath : suffix) {
                     if (threadInterrupt("", false)) return result;
 
-                    if (prefixPath.size() + suffixPath.size() <= maxLength) {
-                        ArrayList<Set<Integer>> newPath = new ArrayList<>();
+                    if (prefixPath.getRealCharSize() + suffixPath.getRealCharSize() <= maxLength) {
+                        Path newPath = new Path();
                         newPath.addAll(prefixPath);
                         newPath.addAll(suffixPath);
                         result.add(newPath);
@@ -2359,7 +2436,8 @@ public class Analyzer {
         }
         else if (root instanceof Pattern.SliceNode){
             me = new LeafNode(groupNums, root);
-            ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+            // ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+            Path tmpPath = new Path();
             for (int i : ((Pattern.SliceNode) root).buffer) {
                 fullSmallCharSet.add(i);
                 if (i > 256) need256 = true;
@@ -2367,8 +2445,11 @@ public class Analyzer {
 
                 Set<Integer> tmpCharSet = new HashSet<>();
                 tmpCharSet.add(i);
-                tmpPath.add(tmpCharSet);
+                // tmpPath.add(tmpCharSet);
+                PathNode tmpNode = new PathNode(tmpCharSet);
+                tmpPath.add(tmpNode);
             }
+            // me.paths.add(tmpPath);
             me.paths.add(tmpPath);
             me.pathGenerated = true;
 
@@ -2376,7 +2457,8 @@ public class Analyzer {
         }
         else if (root instanceof Pattern.BnM) {
             me = new LeafNode(groupNums, root);
-            ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+            // ArrayList<Set<Integer>> tmpPath = new ArrayList<>();
+            Path tmpPath = new Path();
             for (int i : ((Pattern.BnM) root).buffer) {
                 fullSmallCharSet.add(i);
                 if (i > 256) need256 = true;
@@ -2384,7 +2466,9 @@ public class Analyzer {
 
                 Set<Integer> tmpCharSet = new HashSet<>();
                 tmpCharSet.add(i);
-                tmpPath.add(tmpCharSet);
+                // tmpPath.add(tmpCharSet);
+                PathNode tmpNode = new PathNode(tmpCharSet);
+                tmpPath.add(tmpNode);
             }
             me.paths.add(tmpPath);
             me.pathGenerated = true;

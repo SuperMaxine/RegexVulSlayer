@@ -1,6 +1,7 @@
 package regex;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Set;
 
 public class PathNode {
@@ -13,17 +14,17 @@ public class PathNode {
         lower,
         upper
     }
-    enum lookaroundType {
-        Pos,
-        Neg,
-        Behind,
-        NotBehind
-    }
+    // enum lookaroundType {
+    //     Pos,
+    //     Neg,
+    //     Behind,
+    //     NotBehind
+    // }
 
     public Type type;
     public Set<Integer> charSet;
-    public ArrayList<Set<Integer>> lookaroundPath;
-    private lookaroundType lookaroundType;
+    public ArrayList<Path> lookaroundPath;
+    private Analyzer.lookaroundType lookaroundType;
     public boundType boundType;
 
     public PathNode(Set<Integer> charSet) {
@@ -31,7 +32,7 @@ public class PathNode {
         this.charSet = charSet;
     }
 
-    public PathNode(ArrayList<Set<Integer>> lookaroundPath, lookaroundType lookaroundType) {
+    public PathNode(ArrayList<Path> lookaroundPath, Analyzer.lookaroundType lookaroundType) {
         this.type = Type.lookaround;
         this.lookaroundPath = lookaroundPath;
         this.lookaroundType = lookaroundType;
@@ -41,6 +42,15 @@ public class PathNode {
         this.type = Type.bound;
         this.boundType = boundType;
     }
+
+    public PathNode(PathNode node) {
+        this.type = node.type;
+        this.charSet = new HashSet<>(node.charSet);
+        this.lookaroundPath = node.lookaroundPath;
+        this.lookaroundType = node.lookaroundType;
+        this.boundType = node.boundType;
+    }
+
     public boolean isSet() {
         return type == Type.set;
     }
@@ -57,15 +67,19 @@ public class PathNode {
         return boundType;
     }
 
-    public lookaroundType getLookaroundType() {
+    public Analyzer.lookaroundType getLookaroundType() {
         return lookaroundType;
     }
 
-    public ArrayList<Set<Integer>> getLookaroundPath() {
+    public ArrayList<Path> getLookaroundPath() {
         return lookaroundPath;
     }
 
     public Set<Integer> getCharSet() {
         return charSet;
+    }
+
+    public void setCharSet(Set<Integer> tmpSet) {
+        this.charSet = tmpSet;
     }
 }
