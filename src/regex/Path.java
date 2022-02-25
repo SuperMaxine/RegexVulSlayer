@@ -54,7 +54,7 @@ public class Path {
         return realPaths;
     }
 
-    private ArrayList<PathNode> returnSatisfyPath(ArrayList<PathNode> path, int index, boolean isPump) {
+    private synchronized ArrayList<PathNode> returnSatisfyPath(ArrayList<PathNode> path, int index, boolean isPump) {
         if (index < 0) return path;
         ArrayList<PathNode> newPath = null;
         if (path.get(index).isSet()) {
