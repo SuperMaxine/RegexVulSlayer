@@ -1506,7 +1506,7 @@ public class Analyzer {
                     Path tmpPath = new Path();
                     PathNode pn = new PathNode(right.getPaths(), ((LookaroundNode) right).type);
                     tmpPath.add(pn);
-                    leftPaths.add(tmpPath);
+                    rightPaths.add(tmpPath);
                 }
             }
 

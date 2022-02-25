@@ -45,7 +45,9 @@ public class PathNode {
 
     public PathNode(PathNode node) {
         this.type = node.type;
-        this.charSet = new HashSet<>(node.charSet);
+
+        if (node.charSet != null) this.charSet = new HashSet<>(node.charSet);
+        else this.charSet = null;
         this.lookaroundPath = node.lookaroundPath;
         this.lookaroundType = node.lookaroundType;
         this.boundType = node.boundType;

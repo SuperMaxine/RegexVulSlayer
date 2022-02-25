@@ -40,7 +40,9 @@ public class Path {
             // realPaths.add(tmpRealPath);
 
             ArrayList<Set<Integer>> tmpRealPath = new ArrayList<>();
-            for (PathNode tmpPath : returnSatisfyPath(path, path.size() - 1, isPump)) {
+            ArrayList<PathNode> SatisfyPath = returnSatisfyPath(path, path.size() - 1, isPump);
+            if (SatisfyPath == null) return realPaths;
+            for (PathNode tmpPath : SatisfyPath) {
                 if (tmpPath.isSet()) {
                     tmpRealPath.add(tmpPath.getCharSet());
                 }
@@ -53,18 +55,20 @@ public class Path {
     }
 
     private ArrayList<PathNode> returnSatisfyPath(ArrayList<PathNode> path, int index, boolean isPump) {
+        if (index < 0) return path;
         ArrayList<PathNode> newPath = null;
         if (path.get(index).isSet()) {
             newPath = returnSatisfyPath(path, index - 1, isPump);
         }
         else if (path.get(index).isLookaround()) {
+            if (this.realCharCount == 0) return null;
             for (Path lookaroundPath : path.get(index).getLookaroundPath()) {
                 for (ArrayList<Set<Integer>> realLookaroundPath : lookaroundPath.getRealPaths(false)) {
                     ArrayList<PathNode> tmpPath = copyPath(path);
                     int i = index;
                     for (Set<Integer> realCharSet : realLookaroundPath) {
                         if (tmpPath.get(index).getLookaroundType() == Analyzer.lookaroundType.Pos || tmpPath.get(index).getLookaroundType() == Analyzer.lookaroundType.Neg) {
-                            while (!tmpPath.get(i).isSet()) {
+                            while (!tmpPath.get(i).isSet() && this.realCharCount > 0) {
                                 i++;
                                 if (i >= tmpPath.size()) {
                                     if (isPump) i = 0;
