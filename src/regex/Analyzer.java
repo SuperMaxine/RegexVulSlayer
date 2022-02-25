@@ -26,21 +26,21 @@ public class Analyzer {
     private static final Pattern noneWordP = Pattern.compile("\\W");
     private static final Pattern DefaultSmallCharSetP = Pattern.compile("[0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!\\\"#$%&'()*+,-./:;>=<?@\\[\\]^_`{|}~ \\t\\n\\r]");
     //获取特定类别的节点set
-    Set<Integer> Dot;
+    static Set<Integer> Dot = null;
     // Set<Integer> Bound;
-    Set<Integer> Space;
-    Set<Integer> SpaceFull;
-    Set<Integer> noneSpace;
-    Set<Integer> word;
-    Set<Integer> All;
-    Set<Integer> noneWord;
+    static Set<Integer> Space = null;
+    static Set<Integer> SpaceFull = null;
+    static Set<Integer> noneSpace = null;
+    static Set<Integer> word = null;
+    static Set<Integer> All = null;
+    static Set<Integer> noneWord = null;
 
-    private final boolean OneCouting = true;
-       // private final boolean OneCouting = false;
+    // private final boolean OneCouting = true;
+       private final boolean OneCouting = false;
     // private final boolean POA = true;
     private final boolean POA = false;
-       // private final boolean SLQ = true;
-    private final boolean SLQ = false;
+       private final boolean SLQ = true;
+    // private final boolean SLQ = false;
 
     // private final boolean debugPath = true;
     private final boolean debugPath = false;
@@ -51,8 +51,8 @@ public class Analyzer {
     // private final boolean debugRegex = true;
     private final boolean debugRegex = false;
 
-    // private final boolean debugStuck = true;
-    private final boolean debugStuck = false;
+    private final boolean debugStuck = true;
+    // private final boolean debugStuck = false;
 
     // private final boolean debugFirstAndLast = true;
     private final boolean debugFirstAndLast = false;
@@ -749,10 +749,10 @@ public class Analyzer {
 
     void generateStandardCharSets(){
         //获取特定类别的节点set
-        Dot = getNodeCharSet((Pattern.CharProperty) DotP.root.next);
+        if(Dot == null) Dot = getNodeCharSet((Pattern.CharProperty) DotP.root.next);
         // Bound = getNodeCharSet((Pattern.CharProperty) BoundP.root.next);
-        Space = getNodeCharSet((Pattern.CharProperty) SpaceP.root.next);
-        SpaceFull = new HashSet<Integer>(){{
+        if(Space == null) Space = getNodeCharSet((Pattern.CharProperty) SpaceP.root.next);
+        if(SpaceFull == null) SpaceFull = new HashSet<Integer>(){{
             addAll(Space);
             if (SpaceFullSet) {
                 add(0x00a0);
@@ -768,10 +768,10 @@ public class Analyzer {
                 add(0xfeff);
             }
         }};
-        noneSpace = getNodeCharSet((Pattern.CharProperty) noneSpaceP.root.next);
-        word = getNodeCharSet((Pattern.CharProperty) wordP.root.next);
-        All = getNodeCharSet((Pattern.CharProperty) AllP.root.next);
-        noneWord = getNodeCharSet((Pattern.CharProperty) noneWordP.root.next);
+        if(noneSpace == null) noneSpace = getNodeCharSet((Pattern.CharProperty) noneSpaceP.root.next);
+        if(word == null) word = getNodeCharSet((Pattern.CharProperty) wordP.root.next);
+        if(All == null) All = getNodeCharSet((Pattern.CharProperty) AllP.root.next);
+        if(noneWord == null) noneWord = getNodeCharSet((Pattern.CharProperty) noneWordP.root.next);
 
         generateRawCharSet((Pattern.CharProperty) DefaultSmallCharSetP.root.next, false);
     }
@@ -1285,7 +1285,7 @@ public class Analyzer {
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex.replace("\"", "\\x22") + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +printPaths(this.getRealPaths(), true)+"\"]");
@@ -1301,7 +1301,7 @@ public class Analyzer {
                         // else if (setsEquals(cp.charSet, Bound)) this.SelfRegex += "\\b";
                     else if (setsEquals(cp.charSet, SpaceFull)) this.SelfRegex += "\\s";
                     else if (setsEquals(cp.charSet, noneSpace)) this.SelfRegex += "\\S";
-                    else if (setsEquals(cp.charSet, All)) this.SelfRegex += "\\s\\S";
+                    else if (setsEquals(cp.charSet, All)) this.SelfRegex += "[\\s\\S]";
                     else if (setsEquals(cp.charSet, word)) this.SelfRegex += "\\w";
                     else if (setsEquals(cp.charSet, noneWord)) this.SelfRegex += "\\W";
                     else {
@@ -1635,7 +1635,7 @@ public class Analyzer {
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex.replace("\"", "\\x22") + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +(debug ? printPaths(this.getRealPaths(), true) : "")+"\"]");
@@ -1750,7 +1750,7 @@ public class Analyzer {
                     +"[\""+this.toString().replace("regex.Analyzer$", "").replace("@", "_") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex.replace("\"", "\\x22") + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +(debug ? printPaths(this.getRealPaths(), true) : "")+"\"]");
@@ -1886,7 +1886,7 @@ public class Analyzer {
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + "cmin = " + cmin + "\\ncmax = " + cmax + "\\n"
-                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex.replace("\"", "\\x22") + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +(debug ? printPaths(this.getRealPaths(), true) : "")+"\"]");
@@ -1969,7 +1969,7 @@ public class Analyzer {
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
                     + "type = " + type.toString() + "\\n"
-                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex.replace("\"", "\\x22") + "\\n" : "")
                     + (debug&&debugFirstAndLast ? "first:{" + printSet(first, true) + "}\\n" : "")
                     + (debug&&debugFirstAndLast ? "last:{" + printSet(last, true) + "}\\n" : "")
                     +(debug ? printPaths(this.getRealPaths(), true) : "")+"\"]");
@@ -2033,7 +2033,7 @@ public class Analyzer {
                     +"[\""+ "^" + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex.replace("\"", "\\x22") + "\\n" : "")
                     +"\"]");
         }
     }
@@ -2056,7 +2056,7 @@ public class Analyzer {
                     +"[\""+ "$" + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex.replace("\"", "\\x22") + "\\n" : "")
                     +"\"]");
         }
     }
@@ -2076,12 +2076,21 @@ public class Analyzer {
         }
 
         @Override
+        public void generatePaths() {
+            if (pathGenerated) return;
+            this.paths = new ArrayList<>();
+            Path path = new Path();
+            path.add(new PathNode(type == 3 ? PathNode.boundType.lower : PathNode.boundType.upper));
+            this.paths.add(path);
+        }
+
+        @Override
         void print(boolean debug) {
             System.out.println(this.toString().replace("regex.Analyzer$", "").replace("@", "_")
                     +"[\""+ (this.type == 3 ? "\\b" : "\\B") + "\\n"
                     + (debug ? "groupNums:" + groupNums.toString() + "\\n" : "")
                     + (debug ? "id:" + this.id + "\\n" : "")
-                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex + "\\n" : "")
+                    + (debug&&debugRegex ? "SelfRegex:" + this.SelfRegex.replace("\"", "\\x22") + "\\n" : "")
                     +"\"]");
         }
     }

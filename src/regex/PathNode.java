@@ -25,7 +25,7 @@ public class PathNode {
     public Set<Integer> charSet;
     public ArrayList<Path> lookaroundPath;
     private Analyzer.lookaroundType lookaroundType;
-    public boundType boundType;
+    public boundType bType;
 
     public PathNode(Set<Integer> charSet) {
         this.type = Type.set;
@@ -38,9 +38,9 @@ public class PathNode {
         this.lookaroundType = lookaroundType;
     }
 
-    public PathNode(boundType boundType) {
+    public PathNode(boundType bType) {
         this.type = Type.bound;
-        this.boundType = boundType;
+        this.bType = bType;
     }
 
     public PathNode(PathNode node) {
@@ -50,7 +50,7 @@ public class PathNode {
         else this.charSet = null;
         this.lookaroundPath = node.lookaroundPath;
         this.lookaroundType = node.lookaroundType;
-        this.boundType = node.boundType;
+        this.bType = node.bType;
     }
 
     public boolean isSet() {
@@ -65,8 +65,8 @@ public class PathNode {
         return type == Type.bound;
     }
 
-    public boundType getBoundType() {
-        return boundType;
+    public boundType getbType() {
+        return bType;
     }
 
     public Analyzer.lookaroundType getLookaroundType() {

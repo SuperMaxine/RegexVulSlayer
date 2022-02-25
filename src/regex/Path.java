@@ -122,7 +122,105 @@ public class Path {
             }
         }
         else if (path.get(index).isBound()) {
-            newPath = returnSatisfyPath(path, index - 1, isPump);
+            // newPath = returnSatisfyPath(path, index - 1, isPump);
+            int i = index, j = index;
+            boolean atBegin = false;
+            boolean atEnd = false;
+            while (!path.get(i).isSet() && this.realCharCount > 0) {
+                i++;
+                if (i >= path.size()) {
+                    if (isPump) i = 0;
+                    else {
+                        atBegin = true;
+                        break;
+                    }
+                }
+            }
+            while (!path.get(j).isSet()) {
+                j--;
+                if (j < 0) {
+                    if (isPump) j = path.size() - 1;
+                    else {
+                        atEnd = true;
+                        break;
+                    }
+                }
+            }
+
+            if (atBegin && atEnd) {
+                return null;
+            }
+
+            if (!isPump && (atBegin || atEnd)) {
+                ArrayList<PathNode> tmpPath = copyPath(path);
+                if (tmpPath.get(index).getbType() == PathNode.boundType.lower) {
+                    if (atBegin) {
+                        tmpPath.get(j).getCharSet().retainAll(Analyzer.word);
+                        if (tmpPath.get(j).getCharSet().size() == 0) {
+                            return null;
+                        }
+                    }
+                    else {
+                        tmpPath.get(i).getCharSet().retainAll(Analyzer.word);
+                        if (tmpPath.get(i).getCharSet().size() == 0) {
+                            return null;
+                        }
+                    }
+                }
+                else if (tmpPath.get(index).getbType() == PathNode.boundType.upper) {
+                    if (atBegin) {
+                        tmpPath.get(j).getCharSet().retainAll(Analyzer.noneWord);
+                        if (tmpPath.get(j).getCharSet().size() == 0) {
+                            return null;
+                        }
+                    }
+                    else {
+                        tmpPath.get(i).getCharSet().retainAll(Analyzer.noneWord);
+                        if (tmpPath.get(i).getCharSet().size() == 0) {
+                            return null;
+                        }
+                    }
+                }
+                newPath = returnSatisfyPath(tmpPath, index - 1, isPump);
+            }
+            else {
+                ArrayList<ArrayList<Set<Integer>>> BoundPaths = new ArrayList<>();
+                ArrayList<Set<Integer>> BoundPath = new ArrayList<>();
+                if (path.get(index).getbType() == PathNode.boundType.lower) {
+                    BoundPath.add(Analyzer.word);
+                    BoundPath.add(Analyzer.noneWord);
+                    BoundPaths.add(BoundPath);
+                    BoundPath = new ArrayList<>();
+                    BoundPath.add(Analyzer.noneWord);
+                    BoundPath.add(Analyzer.word);
+                    BoundPaths.add(BoundPath);
+                }
+                else if (path.get(index).getbType() == PathNode.boundType.upper) {
+                    BoundPath.add(Analyzer.noneWord);
+                    BoundPath.add(Analyzer.noneWord);
+                    BoundPaths.add(BoundPath);
+                    BoundPath = new ArrayList<>();
+                    BoundPath.add(Analyzer.word);
+                    BoundPath.add(Analyzer.word);
+                    BoundPaths.add(BoundPath);
+                }
+
+                for (ArrayList<Set<Integer>> boundPath : BoundPaths) {
+                    ArrayList<PathNode> tmpPath = copyPath(path);
+                    tmpPath.get(i).getCharSet().retainAll(boundPath.get(0));
+                    tmpPath.get(j).getCharSet().retainAll(boundPath.get(1));
+                    if (tmpPath.get(i).getCharSet().size() == 0 || tmpPath.get(j).getCharSet().size() == 0) {
+                        continue;
+                    }
+                    else {
+                        newPath = returnSatisfyPath(tmpPath, index - 1, isPump);
+                        if (newPath != null) {
+                            return newPath;
+                        }
+                    }
+                }
+            }
+
         }
         return newPath;
     }

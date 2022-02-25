@@ -6107,12 +6107,12 @@ public final class redosPattern implements java.io.Serializable {
     }
 
     public double getMatchingStepCnt(String prefix, String pump, String suffix, int max_length, double threshold) {
-        // String repeated = new String(new char[max_length]).replace("\0", pump);
+        String repeated = new String(new char[max_length / pump.length()]).replace("\0", pump);
 
-        String repeated = "";
-        for (int i = 0; i < max_length && repeated.length() < max_length; i++) {
-            repeated += pump;
-        }
+        // String repeated = "";
+        // for (int i = 0; i < max_length && repeated.length() < max_length; i++) {
+        //     repeated += pump;
+        // }
 
         String attack_string = prefix + repeated + suffix;
 
