@@ -35,11 +35,11 @@ public class Analyzer {
     Set<Integer> All;
     Set<Integer> noneWord;
 
-    // private final boolean OneCouting = true;
-       private final boolean OneCouting = false;
-    private final boolean POA = true;
-    // private final boolean POA = false;
-    //    private final boolean SLQ = true;
+    private final boolean OneCouting = true;
+       // private final boolean OneCouting = false;
+    // private final boolean POA = true;
+    private final boolean POA = false;
+       // private final boolean SLQ = true;
     private final boolean SLQ = false;
 
     // private final boolean debugPath = true;
@@ -149,8 +149,8 @@ public class Analyzer {
         countingNodes.remove(DotNode);
 
         // generateAllPath(root);
-        // System.out.println("\n\n-----------------------\n\n\nflowchart TD");
-        // printTree(root, true);
+        System.out.println("\n\n-----------------------\n\n\nflowchart TD");
+        printTree(root, true);
         // 记录结束时间
         endTime = System.currentTimeMillis();
         System.out.println("id:"+id+",scanAllPath cost time: " + (endTime - startTime) + "ms");
@@ -162,7 +162,7 @@ public class Analyzer {
 
         // 生成前缀路径
         // for (LeafNode node : countingNodes) {
-        //     if(Thread.currentThread().isInterrupted()){
+        //     if(false){
         //         System.out.println("线程请求中断...");
         //         if (debugPath) {
         //             try {
@@ -211,9 +211,10 @@ public class Analyzer {
                     public void run() {
                         ThreadsNum[0]++;
                         synchronized (countingPrePaths) {
+                            // System.out.println("----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\npumpPaths:\n" + printPaths(node.getRealPaths(), false) + "\n");
                             if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
-                            for (int i = 0 ; i < node.getRealPaths().size() && !Thread.currentThread().isInterrupted(); i++) {
-                                for (int j = i + 1; j < node.getRealPaths().size() && !Thread.currentThread().isInterrupted(); j++) {
+                            for (int i = 0 ; i < node.getRealPaths().size() && !false; i++) {
+                                for (int j = i + 1; j < node.getRealPaths().size() && !false; j++) {
                                     ArrayList<Set<Integer>> pumpPath = getPathCompletelyOverLap(node.getRealPaths().get(i), node.getRealPaths().get(j));
                                     if(pumpPath.size() != 0) {
                                         if (countingPrePaths.get(node) == null) {
@@ -251,7 +252,7 @@ public class Analyzer {
 
             }
 
-            while(!getResult[0] && !Thread.currentThread().isInterrupted() && ThreadsNum[0] > 0) {
+            while(!getResult[0] && !false && ThreadsNum[0] > 0) {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -271,8 +272,8 @@ public class Analyzer {
             final boolean[] getResult = {false};
             ExecutorService executorService = Executors.newCachedThreadPool();
 
-            for (int i = 0; i < countingNodes.size() && !Thread.currentThread().isInterrupted(); i++) {
-                for (int j = i + 1; j < countingNodes.size() && !Thread.currentThread().isInterrupted(); j++) {
+            for (int i = 0; i < countingNodes.size() && !false; i++) {
+                for (int j = i + 1; j < countingNodes.size() && !false; j++) {
                     LeafNode node1 = countingNodes.get(i);
                     LeafNode node2 = countingNodes.get(j);
 
@@ -343,7 +344,7 @@ public class Analyzer {
                                                             countingPrePaths.put(midPathsAndFrontNode.getValue(), prePathsRealPaths);
                                                         }
                                                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(midPathsAndFrontNode.getValue())) {
-                                                            if (Thread.currentThread().isInterrupted()) {
+                                                            if (false) {
                                                                 System.out.println("线程请求中断...3");
                                                                 return;
                                                             }
@@ -421,7 +422,7 @@ public class Analyzer {
                                                     if (path2.size() == 0) continue;
                                                     if (path2.size() > overlap.size()) continue;
                                                     tmpPath = new ArrayList<>();
-                                                    for (int k = 0; k < path2.size() && !Thread.currentThread().isInterrupted(); k++) {
+                                                    for (int k = 0; k < path2.size() && !false; k++) {
                                                         Set<Integer> tmpCharSet = new HashSet<>(path2.get(k));
                                                         tmpCharSet.retainAll(overlap.get(k));
                                                         if (tmpCharSet.size() == 0) {
@@ -457,7 +458,7 @@ public class Analyzer {
                                                       0 1 2 size = 3
 
                                                  */
-                                                            for (int k = overlap.size() - 1; k >= diff && !Thread.currentThread().isInterrupted(); k--) {
+                                                            for (int k = overlap.size() - 1; k >= diff && !false; k--) {
                                                                 Set<Integer> tmpCharSet = new HashSet<>(overlap.get(k));
                                                                 tmpCharSet.retainAll(path2.get(k - diff));
                                                                 if (tmpCharSet.size() == 0) {
@@ -546,7 +547,7 @@ public class Analyzer {
                 }
             }
 
-            while(!getResult[0] && !Thread.currentThread().isInterrupted() && ThreadsNum[0] > 0) {
+            while(!getResult[0] && !false && ThreadsNum[0] > 0) {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -583,6 +584,7 @@ public class Analyzer {
                     public void run() {
                         ThreadsNum[0]++;
                         synchronized (countingPrePaths) {
+                            // System.out.println("----------------------------------------------------------\nnode regex: " + node.SelfRegex + "\npumpPaths:\n" + printPaths(node.getRealPaths(), false) + "\n");
                             Enumerator preEnum = new Enumerator(new ArrayList<>());
                             if (debugStuck) System.out.println("node: " + node.id + ",regex:" + node.SelfRegex);
                             if (threadInterrupt("\nTraversing paths time out\n", true)) return;
@@ -612,7 +614,7 @@ public class Analyzer {
                                     }
                                     if (countingPrePaths.get(node).size() == 0) {
                                         for (ArrayList<Set<Integer>> pumpPath : node.getRealPaths()) {
-                                            if (Thread.currentThread().isInterrupted()) {
+                                            if (false) {
                                                 System.out.println("线程请求中断...4");
                                                 return;
                                             }
@@ -626,13 +628,13 @@ public class Analyzer {
                                     }
                                     else {
                                         for (ArrayList<Set<Integer>> prePath : countingPrePaths.get(node)) {
-                                            if (Thread.currentThread().isInterrupted()) {
+                                            if (false) {
                                                 System.out.println("线程请求中断...5");
                                                 return;
                                             }
                                             preEnum = new Enumerator(prePath);
                                             for (ArrayList<Set<Integer>> pumpPath : node.getRealPaths()) {
-                                                if (Thread.currentThread().isInterrupted()) {
+                                                if (false) {
                                                     System.out.println("线程请求中断...6");
                                                     return;
                                                 }
@@ -684,7 +686,7 @@ public class Analyzer {
                                                 attackMsg += "SLQ2" + "\n" + "pre:" + "\n" + printPath(prePath, false) + "\n" + "pump:" + "\n" + printPath(pumpPath, false) + "\n" + "pumpPaths:" + "\n" + printPaths(pumpPaths, false) + "\n";
                                             if (realTest) {
                                                 for (ArrayList<Set<Integer>> pumpPath_ : pumpPaths) {
-                                                    if (Thread.currentThread().isInterrupted()) {
+                                                    if (false) {
                                                         System.out.println("线程请求中断...7");
                                                         return;
                                                     }
@@ -713,7 +715,7 @@ public class Analyzer {
 
             }
 
-            while(!getResult[0] && !Thread.currentThread().isInterrupted() && ThreadsNum[0] > 0) {
+            while(!getResult[0] && !false && ThreadsNum[0] > 0) {
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
@@ -775,7 +777,7 @@ public class Analyzer {
     }
 
     boolean threadInterrupt(String debugMsg, boolean debug) {
-        if(Thread.currentThread().isInterrupted()){
+        if(false){
             System.out.println("线程请求中断...2");
             if (debugPath && debug) {
                 try {
@@ -808,7 +810,7 @@ public class Analyzer {
         // 向上遍历，找到最小公共父节点
         LeafNode tmp = node1;
         LeafNode father = tmp;
-        while (!id2childNodes.get(father.id).contains(node2.id)  && !Thread.currentThread().isInterrupted()) {
+        while (!id2childNodes.get(father.id).contains(node2.id)  && !false) {
             father = tmp.father;
             tmp = father;
         }
@@ -832,7 +834,7 @@ public class Analyzer {
 
             tmp = front;
             LeafNode tmpfather = tmp.father;
-            while (tmpfather != father && !Thread.currentThread().isInterrupted()) {
+            while (tmpfather != father && !false) {
                 if (tmpfather instanceof ConnectNode && ((ConnectNode) tmpfather).comeFromRight(tmp)) {
                     prefixPaths = splicePath(((ConnectNode) tmpfather).returnTrueLeftPaths(), prefixPaths);
                 }
@@ -842,7 +844,7 @@ public class Analyzer {
 
             tmp = back;
             tmpfather = tmp.father;
-            while (tmpfather != father && !Thread.currentThread().isInterrupted()) {
+            while (tmpfather != father && !false) {
                 if (tmpfather instanceof ConnectNode && ((ConnectNode) tmpfather).comeFromRight(tmp)) {
                     suffixPaths = splicePath(((ConnectNode) tmpfather).returnTrueLeftPaths(), suffixPaths);
                 }
@@ -917,11 +919,11 @@ public class Analyzer {
         } else {
             // ArrayList<oldPath> result = new ArrayList<>();
             // 对path1.path滑动窗口，从开始到path1.path.size() - path2.path.size()，每次滑动一位
-            for (int i = 0; i < path1.size() - path2.size() + 1 && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = 0; i < path1.size() - path2.size() + 1 && !false; i++) {
                 // 对每一个滑动窗口，比较每一个节点的字符集
                 ArrayList<Set<Integer>> charSet1 = new ArrayList<>();
                 boolean path2InPath1 = true;
-                for (int j = 0; j < path2.size() && !Thread.currentThread().isInterrupted(); j++) {
+                for (int j = 0; j < path2.size() && !false; j++) {
                     Set<Integer> tmpCharSet = new HashSet<>();
                     tmpCharSet.addAll(path1.get(i + j));
                     tmpCharSet.retainAll(path2.get(j));
@@ -938,7 +940,7 @@ public class Analyzer {
                 if (path2InPath1) {
                     boolean rawPathHaveNoneSet = false;
                     // charSet1是path1_2 & path2，这一步为在其后添加path1_3
-                    for (int j = i + path2.size(); j < path1.size() && !Thread.currentThread().isInterrupted(); j++) {
+                    for (int j = i + path2.size(); j < path1.size() && !false; j++) {
                         if (path1.get(j).size()==0) {
                             rawPathHaveNoneSet = true;
                             break;
@@ -947,7 +949,7 @@ public class Analyzer {
                     }
                     // 构造tmpResult = path1_1
                     ArrayList<Set<Integer>> tmpResult = new ArrayList<Set<Integer>>();
-                    for (int j = 0; j < i && !Thread.currentThread().isInterrupted(); j++) {
+                    for (int j = 0; j < i && !false; j++) {
                         if (path1.get(j).size()==0) {
                             rawPathHaveNoneSet = true;
                             break;
@@ -969,7 +971,7 @@ public class Analyzer {
     }
 
     private boolean haveEmptyBeginning(LeafNode node) {
-        while (node != this.root && !Thread.currentThread().isInterrupted()) {
+        while (node != this.root && !false) {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromRight(node)) {
                 ArrayList<Path> prePaths = ((ConnectNode) father).returnTrueLeftPaths();
@@ -983,7 +985,7 @@ public class Analyzer {
 
     private boolean neverhaveEmptySuffix(LeafNode node) {
         boolean result = false;
-        while (node != this.root && !Thread.currentThread().isInterrupted()) {
+        while (node != this.root && !false) {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromLeft(node)) {
                 ArrayList<Path> suffixPaths = ((ConnectNode) father).returnTrueRightPaths();
@@ -1021,7 +1023,7 @@ public class Analyzer {
 
         // 如果前缀可空的话，前缀固定为""，只枚举后缀
         if (preEnum.Empty()) {
-            while (pumpEnum.hasNext() && !Thread.currentThread().isInterrupted()) {
+            while (pumpEnum.hasNext() && !false) {
                 String pump = pumpEnum.next();
                 double matchingStepCnt = 0;
                 if (debugStep) System.out.println("pump:" + pump);
@@ -1053,6 +1055,7 @@ public class Analyzer {
                         e.printStackTrace();
                     }
                     System.out.println("MatchSteps: " + matchingStepCnt);
+                    System.out.println("\nprefix:\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n");
                     attackable = true;
                     // attackMsg = type + "\nprefix:\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n";
                     return true;
@@ -1062,9 +1065,9 @@ public class Analyzer {
         }
         // 如果前缀不可空的话，前缀和中缀组合枚举
         else {
-            while (preEnum.hasNext() && !Thread.currentThread().isInterrupted()) {
+            while (preEnum.hasNext() && !false) {
                 String pre = preEnum.next();
-                while (pumpEnum.hasNext() && !Thread.currentThread().isInterrupted()) {
+                while (pumpEnum.hasNext() && !false) {
                     String pump = pumpEnum.next();
                     double matchingStepCnt;
                     if (debugStep) System.out.println("pre:" + pre + "\npump:" + pump);
@@ -1095,6 +1098,7 @@ public class Analyzer {
                             e.printStackTrace();
                         }
                         System.out.println("MatchSteps: " + matchingStepCnt);
+                        System.out.println("\nprefix:" + pre + "\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n");
                         attackable = true;
                         // attackMsg = type + "\nprefix:" + pre + "\n" + "pump:" + pump + "\nsuffix:\\n\\b\\n";
                         return true;
@@ -1121,7 +1125,7 @@ public class Analyzer {
         else {
             // 如果两个路径的长度相同，则需要比较每一个节点的字符集
             ArrayList<Set<Integer>> charSet1 = new ArrayList<>();
-            for (int i = 0; i < path1.size() && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = 0; i < path1.size() && !false; i++) {
                 Set<Integer> tmpCharSet = new HashSet<>();
                 tmpCharSet.addAll(path1.get(i));
                 tmpCharSet.retainAll(path2.get(i));
@@ -1148,14 +1152,14 @@ public class Analyzer {
         public Enumerator(ArrayList<Set<Integer>> path) {
             this.indexs = new ArrayList<>();
             this.path = new ArrayList<>();
-            for (int i = 0; i < path.size() && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = 0; i < path.size() && !false; i++) {
                 this.path.add(new ArrayList<>(path.get(i)));
                 this.indexs.add(0);
             }
             if (!haveAdvancedFeatures) {
                 this.rand = new Random(System.currentTimeMillis());
                 pathRand = new ArrayList<>();
-                for (int i = 0; i < path.size() && !Thread.currentThread().isInterrupted(); i++) {
+                for (int i = 0; i < path.size() && !false; i++) {
                     pathRand.add(new ArrayList<>(path.get(i)));
                 }
             }
@@ -1170,12 +1174,12 @@ public class Analyzer {
 
         private String nextAdvanced() {
             String sb = "";
-            for (int i = 0; i < path.size() && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = 0; i < path.size() && !false; i++) {
                 int tmp = path.get(i).get(indexs.get(i));
                 sb += (char) tmp;
             }
 
-            for (int i = indexs.size() - 1; i >= 0 && !Thread.currentThread().isInterrupted(); i--) {
+            for (int i = indexs.size() - 1; i >= 0 && !false; i--) {
                 // 如果这一位的index遍历到头，则重置这一位，进入下一轮循环让下一位进位
                 if (indexs.get(i) == path.get(i).size()) {
                     indexs.set(i, 0);
@@ -1184,7 +1188,7 @@ public class Analyzer {
                     // 如果这一位的index还没有遍历到头，让这一位的index加1
                     indexs.set(i, indexs.get(i) + 1);
                     // 如果这一位经过加1遍历到头的话，重置这一位，给前一位加1
-                    for (int j = i; j > 0 && indexs.get(j) == path.get(j).size() && !Thread.currentThread().isInterrupted(); j--) {
+                    for (int j = i; j > 0 && indexs.get(j) == path.get(j).size() && !false; j--) {
                         indexs.set(j - 1, indexs.get(j - 1) + 1);
                         indexs.set(j, 0);
                     }
@@ -1197,7 +1201,7 @@ public class Analyzer {
         private String nextNoAdvanced() {
             // 随机给出path的组合
             String sb = "";
-            for (int i = 0; i < path.size() && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = 0; i < path.size() && !false; i++) {
                 sb += getRandChar(i);
             }
             return sb;
@@ -1233,7 +1237,7 @@ public class Analyzer {
         }
 
         public void reset() {
-            for (int i = 0; i < this.indexs.size() && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = 0; i < this.indexs.size() && !false; i++) {
                 this.indexs.set(i, 0);
             }
         }
@@ -1792,7 +1796,7 @@ public class Analyzer {
             ArrayList<Path> lastPaths = new ArrayList<>();
             lastPaths.add(new Path());
 
-            for (int i = 0; i < cmin && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = 0; i < cmin && !false; i++) {
                 ArrayList<Path> newPaths = new ArrayList<>();
                 for (Path atomPath : atomPaths) {
                     if (atomPath.getRealCharSize() == 0) continue;
@@ -1812,7 +1816,7 @@ public class Analyzer {
             }
 
             this.paths = new ArrayList<>();
-            for (int i = cmin; i < cmax && i < maxLength && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = cmin; i < cmax && i < maxLength && !false; i++) {
                 this.paths.addAll(lastPaths);
                 ArrayList<Path> newPaths = new ArrayList<>();
                 for (Path atomPath : atomPaths) {
@@ -2090,7 +2094,7 @@ public class Analyzer {
     private ArrayList<Path> generatePrePath(LeafNode countingNode) {
         LeafNode node = countingNode;
         ArrayList<Path> result = new ArrayList<>();
-        while (node != this.root && !Thread.currentThread().isInterrupted()) {
+        while (node != this.root && !false) {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromRight(node)) {
                 // ArrayList<ArrayList<Set<Integer>>> left = ((ConnectNode) father).returnTrueLeftPaths();
@@ -2112,7 +2116,7 @@ public class Analyzer {
     private String generatePreRegex(LeafNode countingNode) {
         LeafNode node = countingNode;
         String result = "";
-        while (node != this.root && !Thread.currentThread().isInterrupted()) {
+        while (node != this.root && !false) {
             LeafNode father = node.father;
             if (father instanceof ConnectNode && ((ConnectNode) father).comeFromRight(node)) {
                 result = (((ConnectNode) father).left == null) ? "" : ((ConnectNode) father).left.SelfRegex + result;
@@ -2537,8 +2541,8 @@ public class Analyzer {
         root.selfRegex = "";
         int count = 0;
         int charSetRange = (need65536 ? 65536 : (need256 ? 256 : 128));
-        // for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
-        for (int i = 0; i < charSetRange && !Thread.currentThread().isInterrupted(); i++) {
+        // for (int i = 0; i < 256 && !false; i++) {
+        for (int i = 0; i < charSetRange && !false; i++) {
             if (root.isSatisfiedBy(i)) {
                 charSet.add(i);
 
@@ -2599,7 +2603,7 @@ public class Analyzer {
 
         if (bigCharSetMap.size() > 20) {
             // Set<Integer> charSet = new HashSet<>();
-            // for (int i = 0; i < 256 && !Thread.currentThread().isInterrupted(); i++) {
+            // for (int i = 0; i < 256 && !false; i++) {
             //     if (root.isSatisfiedBy(i)) {
             //         charSet.add(i);
             //     }
@@ -2663,7 +2667,7 @@ public class Analyzer {
                 if (tmp.size() > 0) {
                     int index = rand.nextInt(tmp.size());
                     Iterator<Integer> iter = tmp.iterator();
-                    for (int i = 0; i < index && !Thread.currentThread().isInterrupted(); i++) {
+                    for (int i = 0; i < index && !false; i++) {
                         iter.next();
                     }
                     result.add(iter.next());
@@ -2677,7 +2681,7 @@ public class Analyzer {
         if (tmp.size() > 0) {
             int index = rand.nextInt(tmp.size());
             Iterator<Integer> iter = tmp.iterator();
-            for (int i = 0; i < index && !Thread.currentThread().isInterrupted(); i++) {
+            for (int i = 0; i < index && !false; i++) {
                 iter.next();
             }
             result.add(iter.next());
@@ -2989,7 +2993,7 @@ public class Analyzer {
         // 默认的处理方法
         root.selfRegex = "";
         int count = 0;
-        for (int i = 0; i < 65536 && !Thread.currentThread().isInterrupted(); i++) {
+        for (int i = 0; i < 65536 && !false; i++) {
             if (root.isSatisfiedBy(i)) {
                 if (i < 128) root.charSet_0_128.add(i);
                 else if (i < 256) root.charSet_128_256.add(i);
